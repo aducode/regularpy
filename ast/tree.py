@@ -49,9 +49,12 @@ class CatNode(Node):
     """
     def __init__(self, op, children):
         super(CatNode, self).__init__(op, children)
-        self.nullable = True
-        for child in self.children:
-            self.nullable = self.nullable and child.nullable
+        assert len(children) == 2
+        self.nullable = self.children[0].nullable and self.children[1].nullable
+        if self.children[0].nullable:
+            self.firstpos = self.children[0].firstpos | self.children[1].firstpos
+        else:
+            self.firstpos = self.children[0].firstpos
 
 
 class OrNode(Node):
@@ -60,18 +63,19 @@ class OrNode(Node):
     """
     def __init__(self, op, children):
         super(OrNode, self).__init__(op, children)
-        self.nullable = False
-        for child in self.children:
-            self.nullable = self.nullable or child.nullable
+        assert len(children) == 2
+        self.nullable = self.children[0].nullable or self.children[1].nullable
+        self.firstpos = self.children[0].firstpos | self.children[1].firstpos
 
 
 class StarNode(Node):
     """
     Start 操作节点
     """
-    def __init__(self, op ,children):
+    def __init__(self, op, children):
         super(StarNode, self).__init__(op, children)
         self.nullable = True
+        self.firstpos = self.children[0].firstpos
 
 
 class Leaf(Node):
@@ -81,6 +85,7 @@ class Leaf(Node):
     def __init__(self, value):
         super(Leaf, self).__init__(value)
         self.nullable = False
+        self.firstpos = set([self])
 
 
 def build_ast(token):
