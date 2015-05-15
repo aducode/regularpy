@@ -25,7 +25,7 @@ class Node(object):
         return '%s:%s' % (self.value, self.children)
 
 
-def buildAST(token):
+def build_ast(token):
     """
     根据输入的正则表达式构建抽象语法树
     :param token:  正则表达式
@@ -81,19 +81,19 @@ def buildAST(token):
     return value_stack[0]
 
 
-def visitAST(root, ident=0):
-    print '\t'*ident, root.value
-    if root.children:
-        for child in root.children:
-            visitAST(child, ident+1)
+def visit_ast(node, indent=0):
+    print '\t'*indent, node.value
+    if node.children:
+        for child in node.children:
+            visit_ast(child, indent+1)
 
 
 if __name__ == '__main__':
     re = raw_input("please input regular text:\n")
     while re != 'quit':
-        root = buildAST(re)
+        root = build_ast(re)
         print '-' * 20
-        visitAST(root)
+        visit_ast(root)
         re = raw_input("please input regular text:\n")
 
 
