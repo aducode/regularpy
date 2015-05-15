@@ -3,26 +3,84 @@
 import types
 __author__ = 'aducode@126.com'
 
-operators = ['|', '*', ]  # 支持的操作符
-operator_priority = {'|': 1, '.': 2, '*': 3, '(': -1, } # 运算符优先级
-operations_num = {'|': 2, '.': 2, '*': 1, }  # 运算符的操作数
-
 
 class Node(object):
     """
     AST节点
     """
+    operator_priority = {'|': 1, '.': 2, '*': 3, '(': -1, } # 运算符优先级
+    operations_num_map = {'|': 2, '.': 2, '*': 1, }
+
     def __init__(self, value, children=None):
         self.value = value
         self.children = children
 
-    def add_children(self, child):
-        if self.children is None:
-            self.children = []
-        self.children.append(child)
-
     def __str__(self):
         return '%s:%s' % (self.value, self.children)
+
+    @classmethod
+    def new(cls, op, stack):
+        children = []
+        for i in xrange(cls.operations_num(op)):
+            children.append(stack.pop())
+        if op == '*':
+            return StarNode(op, children)
+        elif op == '|':
+            return OrNode(op, children)
+        elif op == '.':
+            return CatNode(op, children)
+
+    @staticmethod
+    def leaf(value):
+        return Leaf(value)
+
+    @classmethod
+    def priority(cls, op):
+        return cls.operator_priority.get(op, -1)
+
+    @classmethod
+    def operations_num(cls, op):
+        return cls.operations_num_map.get(op, 0)
+
+
+class CatNode(Node):
+    """
+    Cat 操作符节点
+    """
+    def __init__(self, op, children):
+        super(CatNode, self).__init__(op, children)
+        self.nullable = True
+        for child in self.children:
+            self.nullable = self.nullable and child.nullable
+
+
+class OrNode(Node):
+    """
+    Or 操作符节点
+    """
+    def __init__(self, op, children):
+        super(OrNode, self).__init__(op, children)
+        self.nullable = False
+        for child in self.children:
+            self.nullable = self.nullable or child.nullable
+
+
+class StarNode(Node):
+    """
+    Start 操作节点
+    """
+    def __init__(self, op ,children):
+        super(StarNode, self).__init__(op, children)
+        self.nullable = True
+
+
+class Leaf(Node):
+    """
+    叶子节点，保存NFA的节点
+    """
+    def __init__(self, value):
+        super(Leaf, self).__init__(value)
+        self.nullable = False
 
 
 def build_ast(token):
@@ -39,21 +97,18 @@ def build_ast(token):
         is_operator = False
         first = True
         for t in token:
-            if t in operators:
+            if t == '|' or t == '*':
                 # 操作符
                 op = t
                 if op != '*':
                     is_operator = True
                 else:
                     is_operator = False
-                while operator_stack and operator_priority[operator_stack[-1]] >= operator_priority[op]:
+                while operator_stack and Node.priority(operator_stack[-1]) >= Node.priority(op):
                     # 操作符栈栈顶优先级高于当前操作符
                     # 需要先计算
                     _op = operator_stack.pop()
-                    node = Node(_op)
-                    for i in xrange(operations_num[_op]):
-                        node.add_children(value_stack.pop())
-                    value_stack.append(node)
+                    value_stack.append(Node.new(_op, value_stack))
                 operator_stack.append(op)
             elif t == '(':
                 # 左括号
@@ -65,10 +120,7 @@ def build_ast(token):
                 # 右括号
                 while operator_stack[-1] != '(':
                     op = operator_stack.pop()
-                    node = Node(op)
-                    for i in xrange(operations_num[op]):
-                        node.add_children(value_stack.pop())
-                    value_stack.append(node)
+                    value_stack.append(Node.new(op, value_stack))
                 if operator_stack[-1] == '(':
                     operator_stack.pop()
             else:
@@ -76,32 +128,26 @@ def build_ast(token):
                 if not is_operator and not first:
                     # 说明前一个t也是一个字符串，两个字符串之间是cat操作(用 . 代替)
                     op = '.'
-                    while operator_stack and operator_priority[operator_stack[-1]] >= operator_priority[op]:
+                    while operator_stack and Node.priority(operator_stack[-1]) >= Node.priority(op):
                         _op = operator_stack.pop()
-                        node = Node(_op)
-                        for i in xrange(operations_num[_op]):
-                            node.add_children(value_stack.pop())
-                        value_stack.append(node)
+                        value_stack.append(Node.new(_op, value_stack))
                     operator_stack.append(op)
                     is_operator = True
                 # 说明前一个是一个操作符
                 value = t
                 is_operator = False
-                value_stack.append(Node(value))  # 压站
+                value_stack.append(Node.leaf(value))  # 压站
                 first = False
         while operator_stack:
             op = operator_stack.pop()
-            node = Node(op)
-            for i in xrange(operations_num[op]):
-                node.add_children(value_stack.pop())
-            value_stack.append(node)
+            value_stack.append(Node.new(op, value_stack))
         return value_stack[0]
     except (IndexError, KeyError, ):
         raise RuntimeError("Parse [%s] fail!" % token)
 
 
 def visit_ast(node, indent=0):
-    print '\t'*indent, node.value
+    print '\t'*indent, node.value, ':nullable:', node.nullable
     if node.children:
         for child in node.children:
             visit_ast(child, indent+1)
