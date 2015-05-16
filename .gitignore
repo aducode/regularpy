@@ -58,3 +58,6 @@ target/
 
 #idea
 *.idea
+*.pyproj
+*.sln
+*.v12.suo
