@@ -206,9 +206,51 @@ def build_ast(token):
         while operator_stack:
             op = operator_stack.pop()
             value_stack.append(Node.new(op, value_stack))
+        # return value_stack[0]
+        # 添加一个结束节
+        value_stack.append(Node.leaf('\0'))
+        value_stack.append(Node.new('.', value_stack))
         return value_stack[0]
     except (IndexError, KeyError, ):
         raise RuntimeError("Parse [%s] fail!" % token)
+
+
+def build_dfa(tree, alpha_set):
+    """
+    根据抽象语法树构建DFA
+    :param tree: 抽象语法树
+    :param alpha_set: 输入字符集合
+    :return: (startState, endStates, States, Trans)  (初始状态, 接收状态, 状态集, 转换函数)
+    """
+    queue = [tree.firstpos]
+    start_state = tuple(tree.firstpos)
+    end_states = set()
+    states = set()
+    trans = {}
+    while queue:
+        s = tuple(queue.pop(0))
+        states.add(s)
+        is_end_state = False
+        for n in s:
+            if n.value == '\0':
+                is_end_state = True
+                break
+        if is_end_state:
+            end_states.add(s)
+        for alpha in alpha_set:
+            u = set()
+            for node in s:
+                if node.value == alpha:
+                    u = u | node.followpos
+            if u:
+                u = tuple(u)
+                if s not in trans:
+                    trans[s] = {}
+                trans[s][alpha] = u
+                if u not in states:
+                    queue.append(u)
+    return start_state, end_states, states, trans
+
 
 
 def visit_ast(node, indent=0):
@@ -226,7 +268,12 @@ if __name__ == '__main__':
             continue
         root = build_ast(re)
         print '-' * 20
-        visit_ast(root)
+        # visit_ast(root)
+        dfa = build_dfa(root, set((x for x in re if x not in ('|', '*', '(', ')'))))
+        print 'start state:', dfa[0]
+        print 'end states:', dfa[1]
+        print 'states:', dfa[2]
+        print 'trans:', dfa[3]
         re = raw_input("please input regular text:\n")
     print 'Bye~~'
 
