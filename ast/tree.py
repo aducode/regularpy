@@ -11,9 +11,10 @@ class Node(object):
     operator_priority = {'|': 1, '.': 2, '*': 3, '(': -1, } # 运算符优先级
     operations_num_map = {'|': 2, '.': 2, '*': 1, }
 
-    def __init__(self, value, children=None):
+    def __init__(self, value=None, children=None):
         self.value = value
         self.children = children
+        self.followpos = set()
 
     def __str__(self):
         return '%s:%s' % (self.value, self.children)
@@ -51,10 +52,31 @@ class CatNode(Node):
         super(CatNode, self).__init__(op, children)
         assert len(children) == 2
         self.nullable = self.children[0].nullable and self.children[1].nullable
-        if self.children[0].nullable:
-            self.firstpos = self.children[0].firstpos | self.children[1].firstpos
+        if self.left.nullable:
+            self.firstpos = self.left.firstpos | self.right.firstpos
         else:
-            self.firstpos = self.children[0].firstpos
+            self.firstpos = self.left.firstpos
+        if self.right.nullable:
+            self.lastpos = self.left.lastpos | self.right.lastpos
+        else:
+            self.lastpos = self.right.lastpos
+
+        for n in self.left.lastpos:
+            n.followpos.update(self.right.firstpos)
+
+    @property
+    def left(self):
+        """
+        左节点
+        """
+        return self.children[1]
+
+    @property
+    def right(self):
+        """
+        右节点
+        """
+        return self.children[0]
 
 
 class OrNode(Node):
@@ -64,9 +86,23 @@ class OrNode(Node):
     def __init__(self, op, children):
         super(OrNode, self).__init__(op, children)
         assert len(children) == 2
-        self.nullable = self.children[0].nullable or self.children[1].nullable
-        self.firstpos = self.children[0].firstpos | self.children[1].firstpos
+        self.nullable = self.left.nullable or self.right.nullable
+        self.firstpos = self.left.firstpos | self.right.firstpos
+        self.lastpos = self.left.lastpos | self.right.lastpos
 
+    @property
+    def left(self):
+        """
+        左节点
+        """
+        return self.children[1]
+
+    @property
+    def right(self):
+        """
+        右节点
+        """
+        return self.children[0]
 
 class StarNode(Node):
     """
@@ -75,8 +111,17 @@ class StarNode(Node):
     def __init__(self, op, children):
         super(StarNode, self).__init__(op, children)
         self.nullable = True
-        self.firstpos = self.children[0].firstpos
+        self.firstpos = self.child.firstpos
+        self.lastpos = self.child.lastpos
+        for n in self.child.lastpos:
+            n.followpos.update(self.child.firstpos)
 
+    @property
+    def child(self):
+        """
+        子节点
+        """
+        return self.children[0]
 
 class Leaf(Node):
     """
@@ -86,6 +131,21 @@ class Leaf(Node):
         super(Leaf, self).__init__(value)
         self.nullable = False
         self.firstpos = set([self])
+        self.lastpos = set([self])
+
+    def __str__(self):
+        return self.value
+
+
+class EmptyNode(Node):
+    """
+    空节点
+    """
+    def __init__(self):
+        super(EmptyNode, self).__init__()
+        self.nullable = True
+        self.firstpos = set()
+        self.lastpos = set()
 
 
 def build_ast(token):
@@ -152,7 +212,7 @@ def build_ast(token):
 
 
 def visit_ast(node, indent=0):
-    print '\t'*indent, node.value, ':nullable:', node.nullable
+    print '\t'*indent, node, '--->', node.value, ':nullable:', node.nullable, ':firstpos:', node.firstpos, ':lastpos', node.lastpos, ':followpos:', node.followpos
     if node.children:
         for child in node.children:
             visit_ast(child, indent+1)
