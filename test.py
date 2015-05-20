@@ -1,4 +1,6 @@
-__author__ = 'Administrator'
+#!/usr/bin/python
+# -*-  coding:utf-8 -*-
+__author__ = 'aducode@126.com'
 from ast.tree import build_ast
 from ast.dfa import build_dfa
 
@@ -34,6 +36,34 @@ def group(dfa, text):
             current_state = start_state
             start = i+1
 
+def group2(dfa, text):
+    start_state = dfa[0]
+    end_states = dfa[1]
+    trans = dfa[3]
+    current_state = start_state
+    start = 0
+    end = -1
+    i = 0
+    while i < len(text):
+        t = text[i]
+        current_state = trans[current_state].get(t, None)
+        if not current_state:
+            if end != -1:
+                yield text[start:end]
+                start = i = end
+            else:
+                i += 1
+                start = i
+            current_state = start_state
+            end = -1
+        else:
+            if current_state in end_states:
+                end = i+1
+            i += 1
+    if end != -1:
+        yield text[start:end]
+
+
 if __name__ == '__main__':
     re = raw_input("please input regular text:(input /quit to quit)\n")
     while re != '/quit':
@@ -51,7 +81,7 @@ if __name__ == '__main__':
         while text != '/pattern':
             print '-' * 20
             # print 'is match?\t', 'yes' if match(dfa, text) else 'no'
-            for t in group(dfa, text):
+            for t in group2(dfa, text):
                 print t
             text = raw_input('please input text:(input /pattern for a new pattern)\n')
         re = raw_input("please input regular text:(input /quit to quit)\n")
