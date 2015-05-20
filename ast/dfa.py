@@ -2,15 +2,17 @@
 # -*- coding:utf-8 -*-
 __author__ = 'aducode@126.com'
 
-def build_dfa(tree, alpha_set):
+def build_dfa(tree):
     """
     根据抽象语法树构建DFA
-    :param tree: 抽象语法树
+    :param (root, alpha_set): 抽象语法树
     :param alpha_set: 输入字符集合
     :return: (startState, endStates, States, Trans)  (初始状态, 接收状态, 状态集, 转换函数)
     """
-    queue = [tree.firstpos]
-    start_state = tuple(tree.firstpos)
+    root = tree[0]
+    alpha_set = tree[1]
+    queue = [root.firstpos]
+    start_state = tuple(root.firstpos)
     end_states = set()
     states = set()
     trans = {}

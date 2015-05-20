@@ -40,9 +40,9 @@ if __name__ == '__main__':
         if re.startswith('/'):
             re = raw_input("can't contain '/', input another regular text:\n")
             continue
-        root = build_ast(re)
+        tree = build_ast(re)
         # visit_ast(root)
-        dfa = build_dfa(root, set((x for x in re if x not in ('|', '*', '(', ')'))))
+        dfa = build_dfa(tree)
         # print 'start state:', dfa[0]
         # print 'end states:', dfa[1]
         # print 'states:', dfa[2]
@@ -50,9 +50,9 @@ if __name__ == '__main__':
         text = raw_input('please input text:(input /pattern for a new pattern)\n')
         while text != '/pattern':
             print '-' * 20
-            print 'is match?\t', 'yes' if match(dfa, text) else 'no'
+            # print 'is match?\t', 'yes' if match(dfa, text) else 'no'
             for t in group(dfa, text):
                 print t
-            text = raw_input('please input text:\n')
-        re = raw_input("please input regular text:\n")
+            text = raw_input('please input text:(input /pattern for a new pattern)\n')
+        re = raw_input("please input regular text:(input /quit to quit)\n")
     print 'Bye~~'

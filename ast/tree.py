@@ -152,13 +152,14 @@ def build_ast(token):
     """
     根据输入的正则表达式构建抽象语法树
     :param token:  正则表达式
-    :return:       AST root
+    :return:       (AST root, alpha-set)
     """
     if not isinstance(token, types.StringTypes):
         return
     try:
         value_stack = []  # 字符栈
         operator_stack = [] # 操作符栈
+        alpha_set = set() # 有效字符表
         is_operator = False
         first = True
         for t in token:
@@ -190,6 +191,7 @@ def build_ast(token):
                     operator_stack.pop()
             else:
                 # 字符
+                alpha_set.add(t)
                 if not is_operator and not first:
                     # 说明前一个t也是一个字符串，两个字符串之间是cat操作(用 . 代替)
                     op = '.'
@@ -210,7 +212,7 @@ def build_ast(token):
         # 添加一个结束节
         value_stack.append(Node.leaf('\0'))
         value_stack.append(Node.new('.', value_stack))
-        return value_stack[0]
+        return value_stack[0], alpha_set
     except (IndexError, KeyError, ):
         raise RuntimeError("Parse [%s] fail!" % token)
 
