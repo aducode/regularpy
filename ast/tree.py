@@ -25,7 +25,7 @@ class Node(object):
         for i in xrange(cls.operations_num(op)):
             children.append(stack.pop())
         if op == '*':
-            return StarNode(op, children)
+            return RepeatNode(op, children)
         elif op == '|':
             return OrNode(op, children)
         elif op == '.':
@@ -104,12 +104,20 @@ class OrNode(Node):
         """
         return self.children[0]
 
-class StarNode(Node):
+class RepeatNode(Node):
     """
-    Start 操作节点
+    Repeat 操作节点
     """
-    def __init__(self, op, children):
-        super(StarNode, self).__init__(op, children)
+    def __init__(self, op, children, min=0, max=None):
+        """
+        :param op: 操作符
+        :param children:    子节点
+        :param min: 最小重复次数
+        :param max: 最大重复次数 None无限
+        """
+        super(RepeatNode, self).__init__(op, children)
+        self.min = min
+        self.max = max
         self.nullable = True
         self.firstpos = self.child.firstpos
         self.lastpos = self.child.lastpos
