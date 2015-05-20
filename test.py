@@ -19,6 +19,12 @@ def match(dfa, text):
     return False
 
 def group(dfa, text):
+    """
+    最小匹配
+    :param dfa:
+    :param text:
+    :return:
+    """
     start_state = dfa[0]
     end_states = dfa[1]
     trans = dfa[3]
@@ -37,6 +43,12 @@ def group(dfa, text):
             start = i+1
 
 def group2(dfa, text):
+    """
+    最大匹配
+    :param dfa:
+    :param text:
+    :return:
+    """
     start_state = dfa[0]
     end_states = dfa[1]
     trans = dfa[3]
