@@ -58,7 +58,7 @@ def group2(dfa, text):
     i = 0
     while i < len(text):
         t = text[i]
-        current_state = trans[current_state].get(t, None)
+        current_state = trans.get(current_state, {}).get(t, None)
         if not current_state:
             if end != -1:
                 yield text[start:end]

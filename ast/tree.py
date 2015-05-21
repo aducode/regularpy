@@ -22,10 +22,11 @@ class Node(object):
     @classmethod
     def new(cls, op, stack):
         children = []
+        op, min_repeat, max_repeat = cls.start_op_wrapper(op)
         for i in xrange(cls.operations_num(op)):
             children.append(stack.pop())
         if op == '*':
-            return RepeatNode(op, children)
+            return RepeatNode(op, children, min=min_repeat, max=max_repeat)
         elif op == '|':
             return OrNode(op, children)
         elif op == '.':
@@ -35,12 +36,48 @@ class Node(object):
     def leaf(value):
         return Leaf(value)
 
+    @staticmethod
+    def start_op_wrapper(op):
+        """
+        处理特殊的重复操作 ? + {m, n}
+        :param op: 操作
+        :return (op, min, max)
+        """
+        if op == '?':
+            return '*', 0, 1
+        elif op == '+':
+            return '*', 1, None
+        elif op.startswith('{') and op.endswith('}'):
+            min_repeat = 0
+            max_repeat = None
+            op = op[1:-1]
+            if op.count(',') == 1:
+                min_max = op.split(',')
+                try:
+                    min_repeat = int(min_max[0])
+                except ValueError:
+                    pass
+                try:
+                    max_repeat = int(min_max[1])
+                except ValueError:
+                    pass
+            elif op.count(',') == 0:
+                try:
+                    min_repeat = max_repeat = int(op)
+                except ValueError:
+                    pass
+            return '*', min_repeat, max_repeat
+        else:
+            return op, 0, None
+
     @classmethod
     def priority(cls, op):
+        op, _, _ = cls.start_op_wrapper(op)
         return cls.operator_priority.get(op, -1)
 
     @classmethod
     def operations_num(cls, op):
+        op, _, _ = cls.start_op_wrapper(op)
         return cls.operations_num_map.get(op, 0)
 
 
@@ -118,11 +155,12 @@ class RepeatNode(Node):
         super(RepeatNode, self).__init__(op, children)
         self.min = min
         self.max = max
-        self.nullable = True
+        self.nullable = True if self.min==0 else False
         self.firstpos = self.child.firstpos
         self.lastpos = self.child.lastpos
-        for n in self.child.lastpos:
-            n.followpos.update(self.child.firstpos)
+        if not self.max or self.max > 1:
+            for n in self.child.lastpos:
+                n.followpos.update(self.child.firstpos)
 
     @property
     def child(self):
@@ -170,11 +208,13 @@ def build_ast(token):
         alpha_set = set() # 有效字符表
         is_operator = False
         first = True
-        for t in token:
-            if t == '|' or t == '*':
+        i = 0
+        while i < len(token):
+            t = token[i]
+            if t == '|' or t == '*' or t == '?' or t == '+':
                 # 操作符
                 op = t
-                if op != '*':
+                if op == '|':
                     is_operator = True
                 else:
                     is_operator = False
@@ -197,6 +237,21 @@ def build_ast(token):
                     value_stack.append(Node.new(op, value_stack))
                 if operator_stack[-1] == '(':
                     operator_stack.pop()
+            elif t == '{':
+                j = i+1
+                while j < len(token) and token[j] != '}':
+                    j += 1
+                if j == len(token):
+                    raise RuntimeError("Parse [%s] fail!" % token)
+                is_operator = False
+                op = token[i:j+1]
+                i = j
+                while operator_stack and Node.priority(operator_stack[-1]) >= Node.priority(op):
+                    # 操作符栈栈顶优先级高于当前操作符
+                    # 需要先计算
+                    _op = operator_stack.pop()
+                    value_stack.append(Node.new(_op, value_stack))
+                operator_stack.append(op)
             else:
                 # 字符
                 alpha_set.add(t)
@@ -213,6 +268,7 @@ def build_ast(token):
                 is_operator = False
                 value_stack.append(Node.leaf(value))  # 压站
                 first = False
+            i += 1
         while operator_stack:
             op = operator_stack.pop()
             value_stack.append(Node.new(op, value_stack))
