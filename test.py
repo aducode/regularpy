@@ -1,8 +1,8 @@
 #!/usr/bin/python
 # -*-  coding:utf-8 -*-
 __author__ = 'aducode@126.com'
-from ast.tree import build_ast
-from ast.dfa import build_dfa
+from dfa.tree import build_ast
+from dfa.dfa import build_dfa
 
 
 def match(dfa, text):
