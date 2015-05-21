@@ -64,7 +64,7 @@ def group2(dfa, text):
                 yield text[start:end]
                 start = i = end
             else:
-                i += 1
+                i = start + 1
                 start = i
             current_state = start_state
             end = -1
