@@ -231,15 +231,37 @@ def build_ast(token):
                     value_stack.append(Node.new(op, value_stack))
                 if operator_stack[-1] == '(':
                     operator_stack.pop()
-            # elif t == '{':
-            #     j = i+1
-            #     while j < len(token) and token[j] != '}':
-            #         j += 1
-            #     if j == len(token):
-            #         raise RuntimeError("Parse [%s] fail!" % token)
-            #     is_operator = False
-            #     op = token[i:j+1]
-            #     i = j
+            elif t == '{':
+                j = i+1
+                while j < len(token) and token[j] != '}':
+                    j += 1
+                if j == len(token):
+                    raise RuntimeError("Parse [%s] fail!" % token)
+                is_operator = False
+                op = token[i+1:j]
+                i = j
+                is_operator = False
+                min_repeat = 0
+                max_repeat = None
+                if op.count(',') == 0:
+                    try:
+                        min_repeat = max_repeat = int(op)
+                    except ValueError:
+                        pass
+                elif op.count(',') == 1:
+                    min_max = op.split(',')
+                    try:
+                        min_repeat = int(min_max[0])
+                    except ValueError:
+                        pass
+                    try:
+                        max_repeat = int(min_max[1])
+                    except ValueError:
+                        pass
+                # if value_stack:
+                #     for tmp in xrange(min_repeat):
+                #         value_stack.append(Node.leaf(value_stack[-1].value))
+                #         operator_stack.append(Node.new('.', ))
             #     while operator_stack and Node.priority(operator_stack[-1]) >= Node.priority(op):
             #         # 操作符栈栈顶优先级高于当前操作符
             #         # 需要先计算
