@@ -8,8 +8,8 @@ class Node(object):
     """
     AST节点
     """
-    operator_priority = {'|': 1, '.': 2, '*': 3, '(': -1, } # 运算符优先级
-    operations_num_map = {'|': 2, '.': 2, '*': 1, }
+    operator_priority = {'|': 1, '.': 2, '*': 3, '?': 3, '+': 3, '(': -1, } # 运算符优先级
+    operations_num_map = {'|': 2, '.': 2, '*': 1, '?': 1, '+': 1}
 
     def __init__(self, value=None, children=None):
         self.value = value
@@ -22,11 +22,14 @@ class Node(object):
     @classmethod
     def new(cls, op, stack):
         children = []
-        op, min_repeat, max_repeat = cls.start_op_wrapper(op)
         for i in xrange(cls.operations_num(op)):
             children.append(stack.pop())
         if op == '*':
-            return RepeatNode(op, children, min=min_repeat, max=max_repeat)
+            return StartNode(op, children)
+        elif op == '?':
+            return QuestionMarkNode(op, children)
+        elif op == '+':
+            return PlusNode(op, children)
         elif op == '|':
             return OrNode(op, children)
         elif op == '.':
@@ -36,48 +39,12 @@ class Node(object):
     def leaf(value):
         return Leaf(value)
 
-    @staticmethod
-    def start_op_wrapper(op):
-        """
-        处理特殊的重复操作 ? + {m, n}
-        :param op: 操作
-        :return (op, min, max)
-        """
-        if op == '?':
-            return '*', 0, 1
-        elif op == '+':
-            return '*', 1, None
-        elif op.startswith('{') and op.endswith('}'):
-            min_repeat = 0
-            max_repeat = None
-            op = op[1:-1]
-            if op.count(',') == 1:
-                min_max = op.split(',')
-                try:
-                    min_repeat = int(min_max[0])
-                except ValueError:
-                    pass
-                try:
-                    max_repeat = int(min_max[1])
-                except ValueError:
-                    pass
-            elif op.count(',') == 0:
-                try:
-                    min_repeat = max_repeat = int(op)
-                except ValueError:
-                    pass
-            return '*', min_repeat, max_repeat
-        else:
-            return op, 0, None
-
     @classmethod
     def priority(cls, op):
-        op, _, _ = cls.start_op_wrapper(op)
         return cls.operator_priority.get(op, -1)
 
     @classmethod
     def operations_num(cls, op):
-        op, _, _ = cls.start_op_wrapper(op)
         return cls.operations_num_map.get(op, 0)
 
 
@@ -141,26 +108,21 @@ class OrNode(Node):
         """
         return self.children[0]
 
-class RepeatNode(Node):
+class StartNode(Node):
     """
-    Repeat 操作节点
+    Start 操作节点
     """
-    def __init__(self, op, children, min=0, max=None):
+    def __init__(self, op, children):
         """
         :param op: 操作符
         :param children:    子节点
-        :param min: 最小重复次数
-        :param max: 最大重复次数 None无限
         """
-        super(RepeatNode, self).__init__(op, children)
-        self.min = min
-        self.max = max
-        self.nullable = True if self.min==0 else False
+        super(StartNode, self).__init__(op, children)
+        self.nullable = True
         self.firstpos = self.child.firstpos
         self.lastpos = self.child.lastpos
-        if not self.max or self.max > 1:
-            for n in self.child.lastpos:
-                n.followpos.update(self.child.firstpos)
+        for n in self.child.lastpos:
+            n.followpos.update(self.child.firstpos)
 
     @property
     def child(self):
@@ -168,6 +130,38 @@ class RepeatNode(Node):
         子节点
         """
         return self.children[0]
+
+class PlusNode(Node):
+    """
+    +
+    """
+    def __init__(self, op, children):
+        super(PlusNode, self).__init__(op, children)
+        self.nullable = False
+        self.firstpos = self.child.firstpos
+        self.lastpos = self.child.lastpos
+        for n in self.child.lastpos:
+            n.followpos.update(self.child.firstpos)
+
+    @property
+    def child(self):
+        return self.children[0]
+
+
+class QuestionMarkNode(Node):
+    """
+    ?
+    """
+    def __init__(self, op, children):
+        super(QuestionMarkNode, self).__init__(op, children)
+        self.nullable = True
+        self.firstpos = self.child.firstpos
+        self.lastpos = self.child.lastpos
+
+    @property
+    def child(self):
+        return self.children[0]
+
 
 class Leaf(Node):
     """
@@ -237,21 +231,21 @@ def build_ast(token):
                     value_stack.append(Node.new(op, value_stack))
                 if operator_stack[-1] == '(':
                     operator_stack.pop()
-            elif t == '{':
-                j = i+1
-                while j < len(token) and token[j] != '}':
-                    j += 1
-                if j == len(token):
-                    raise RuntimeError("Parse [%s] fail!" % token)
-                is_operator = False
-                op = token[i:j+1]
-                i = j
-                while operator_stack and Node.priority(operator_stack[-1]) >= Node.priority(op):
-                    # 操作符栈栈顶优先级高于当前操作符
-                    # 需要先计算
-                    _op = operator_stack.pop()
-                    value_stack.append(Node.new(_op, value_stack))
-                operator_stack.append(op)
+            # elif t == '{':
+            #     j = i+1
+            #     while j < len(token) and token[j] != '}':
+            #         j += 1
+            #     if j == len(token):
+            #         raise RuntimeError("Parse [%s] fail!" % token)
+            #     is_operator = False
+            #     op = token[i:j+1]
+            #     i = j
+            #     while operator_stack and Node.priority(operator_stack[-1]) >= Node.priority(op):
+            #         # 操作符栈栈顶优先级高于当前操作符
+            #         # 需要先计算
+            #         _op = operator_stack.pop()
+            #         value_stack.append(Node.new(_op, value_stack))
+            #     operator_stack.append(op)
             else:
                 # 字符
                 alpha_set.add(t)
