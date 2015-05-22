@@ -119,6 +119,15 @@ class Edge(object):
         if isinstance(self.end_node, Node):
             self.end_node.add_in_edge(self)
 
+def clone_graph(start, end, visited=set()):
+    """
+    复制图
+    :param start: 开始节点
+    :param end:  结束节点
+    """
+    pass
+
+
 def make_graph(op, value_stack, edge_set):
     if op == '.':
         assert len(value_stack) >= 2
@@ -152,6 +161,22 @@ def make_graph(op, value_stack, edge_set):
         edge_set.add(Edge(start_node=_end, end_node=end))
         edge_set.add(Edge(start_node=start, end_node=end))
         value_stack.append((start, end))
+    elif op == '?':
+        assert len(value_stack) >= 1
+        _start, _end = value_stack.pop()
+        _end.is_end = False
+        start = Node()
+        end = Node(is_end=True)
+        edge_set.add(Edge(start_node=start, end_node=_start))
+        edge_set.add(Edge(start_node=_end, end_node=end))
+        edge_set.add(Edge(start_node=start, end_node=end))
+        value_stack.append((start, end))
+    elif op == '+':
+        assert len(value_stack) >= 1
+        _start, _end = value_stack.pop()
+        _end.is_end = False
+        start = Node()
+        end = Node(is_end=True)
 
 
 def build_nfa(pattern):
@@ -177,13 +202,26 @@ def build_nfa(pattern):
             is_op = True
         elif token == '*':
             is_op = True
+        elif token == '?':
+            is_op = True
+        elif token == '+':
+            is_op =True
+        elif token == '(':
+            op_stack.append(token)
+            next_is_cat = False
+            i += 1
+            continue
+        elif token == ')':
+            while op_stack[-1] != '(':
+                _op = op_stack.pop()
+                make_graph(_op, value_stack, edge_set)
+            next_is_cat = True
+            i += 1
+            continue
         # elif token == '?':
         #     is_op = True
         #     continue
         # elif token == '+':
-        #     is_op = True
-        #     continue
-        # elif token == '(' or token == ')':
         #     is_op = True
         #     continue
         # elif token == '[' or token == ']':
