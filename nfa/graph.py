@@ -2,6 +2,7 @@
 # -*-  coding:utf-8 -*-
 __author__ = 'aducode@126.com'
 import types
+import os
 
 operator_priority = {'|': 1, '.': 2, '*': 3, '?': 3, '+': 3, '(': -1, } # 运算符优先级
 operations_num_map = {'|': 2, '.': 2, '*': 1, '?': 1, '+': 1}
@@ -53,12 +54,13 @@ class Node(object):
         """
         for out_edge in self.out_edges:
             if not value or (out_edge.value == value or not out_edge.value):
-                yield out_edge.end_node
+                yield out_edge.end_node, out_edge.value
 
     def merge(self, node):
         """
         该节点与node合并
         """
+        self.is_end = node.is_end
         for in_edge in self.in_edges:
             node.add_in_edge(in_edge)
         for out_edge in self.out_edges:
@@ -121,8 +123,10 @@ def make_graph(op, value_stack):
         assert len(value_stack) >= 2
         start2, end2 = value_stack.pop()
         start1, end1 = value_stack.pop()
+        end1.is_end = False
+        end2.is_end = False
         start = Node()
-        end = Node()
+        end = Node(is_end=True)
         Edge(start_node=start, end_node=start1)
         Edge(start_node=start, end_node=start2)
         Edge(start_node=end1, end_node=end)
@@ -131,12 +135,13 @@ def make_graph(op, value_stack):
     elif op == '*':
         assert len(value_stack) >= 1
         _start, _end = value_stack.pop()
-        Edge(_end, _start)
+        _end.is_end = False
+        Edge(start_node=_end, end_node=_start)
         start = Node()
-        end = Node()
-        Edge(start, _start)
-        Edge(_end, end)
-        Edge(start, end)
+        end = Node(is_end=True)
+        Edge(start_node=start, end_node=_start)
+        Edge(start_node=_end, end_node=end)
+        Edge(start_node=start, end_node=end)
         value_stack.append((start, end))
 
 
@@ -208,10 +213,33 @@ def build_nfa(pattern):
         value_stack.append(make_graph(_op, value_stack))
     return value_stack[0] if value_stack else None
 
+
+def visit_nfa(start, end, dot):
+    """
+    遍历图
+    :param start:
+    :param end:
+    :return:
+    """
+    if start == end:
+        return
+    visited = set([start])
+    for node, label in start.next():
+        if node not in visited:
+            visited.add(node)
+            dot.write('%s->%s%s;' % (start.id, node.id, '[label="%s"]' % label if label else ''))
+            visit_nfa(node, end, dot)
+
+
 if __name__ == '__main__':
     while True:
         pattern = raw_input('input pattern:\n')
         if pattern == '/quit':
             break
         start, end = build_nfa(pattern)
-        print start, end
+        with open('test.dot', 'w') as dot:
+            dot.write('digraph G{')
+            visit_nfa(start, end, dot)
+            dot.write('%s[color=red]' % end.id)
+            dot.write('}')
+        os.system('dot2png.bat')
