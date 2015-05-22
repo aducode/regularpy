@@ -54,17 +54,24 @@ class Node(object):
         """
         for out_edge in self.out_edges:
             if not value or (out_edge.value == value or not out_edge.value):
-                yield out_edge.end_node, out_edge.value
+                yield out_edge.end_node, out_edge
 
     def merge(self, node):
         """
         该节点与node合并
         """
+        ret = None
+        for out_edge in self.out_edges:
+            if out_edge.end_node == node:
+                ret = out_edge
+                self.out_edges.remove(out_edge)
+                break
         self.is_end = node.is_end
         for in_edge in self.in_edges:
             node.add_in_edge(in_edge)
         for out_edge in self.out_edges:
             node.add_out_edge(out_edge)
+        return ret
 
     # def pop_in_edge(self, node):
     #     ret = None
@@ -112,12 +119,14 @@ class Edge(object):
         if isinstance(self.end_node, Node):
             self.end_node.add_in_edge(self)
 
-def make_graph(op, value_stack):
+def make_graph(op, value_stack, edge_set):
     if op == '.':
         assert len(value_stack) >= 2
         start2, end2 = value_stack.pop()
         start1, end1 = value_stack.pop()
-        end1.merge(start2)
+        old_edge = end1.merge(start2)
+        if old_edge and old_edge in edge_set:
+            edge_set.remove(old_edge)
         value_stack.append((start1, end2))
     elif op == '|':
         assert len(value_stack) >= 2
@@ -127,21 +136,21 @@ def make_graph(op, value_stack):
         end2.is_end = False
         start = Node()
         end = Node(is_end=True)
-        Edge(start_node=start, end_node=start1)
-        Edge(start_node=start, end_node=start2)
-        Edge(start_node=end1, end_node=end)
-        Edge(start_node=end2, end_node=end)
+        edge_set.add(Edge(start_node=start, end_node=start1))
+        edge_set.add(Edge(start_node=start, end_node=start2))
+        edge_set.add(Edge(start_node=end1, end_node=end))
+        edge_set.add(Edge(start_node=end2, end_node=end))
         value_stack.append((start, end))
     elif op == '*':
         assert len(value_stack) >= 1
         _start, _end = value_stack.pop()
         _end.is_end = False
-        Edge(start_node=_end, end_node=_start)
+        edge_set.add(Edge(start_node=_end, end_node=_start))
         start = Node()
         end = Node(is_end=True)
-        Edge(start_node=start, end_node=_start)
-        Edge(start_node=_end, end_node=end)
-        Edge(start_node=start, end_node=end)
+        edge_set.add(Edge(start_node=start, end_node=_start))
+        edge_set.add(Edge(start_node=_end, end_node=end))
+        edge_set.add(Edge(start_node=start, end_node=end))
         value_stack.append((start, end))
 
 
@@ -149,10 +158,11 @@ def build_nfa(pattern):
     """
     根据正则表达式构造nfa
     :param pattern: 正则表达式
-    :return:
+    :return (start_node, end_node, edge_set):
     """
     if not pattern:
         return
+    edge_set = set()
     value_stack = []
     op_stack = []
     i = 0
@@ -190,8 +200,9 @@ def build_nfa(pattern):
             op = token
             while op_stack and operator_priority[op_stack[-1]] >= operator_priority[op]:
                 _op = op_stack.pop()
-                value_stack.append(make_graph(_op, value_stack))
+                make_graph(_op, value_stack, edge_set)
             op_stack.append(op)
+            is_op = False
         else:
             # 字符串
             if not is_first and next_is_cat:
@@ -199,47 +210,56 @@ def build_nfa(pattern):
                 op = '.'
                 while op_stack and operator_priority[op_stack[-1]] >= operator_priority[op]:
                     _op = op_stack.pop()
-                    value_stack.append(make_graph(_op, value_stack))
+                    make_graph(_op, value_stack, edge_set)
                 op_stack.append(op)
             start_node = Node()
             end_node = Node(is_end=True)
-            Edge(token, start_node=start_node, end_node=end_node)
+            edge_set.add(Edge(token, start_node=start_node, end_node=end_node))
             value_stack.append((start_node, end_node))
             next_is_cat = True
         is_first = False
         i += 1
     while op_stack:
         _op = op_stack.pop()
-        value_stack.append(make_graph(_op, value_stack))
-    return value_stack[0] if value_stack else None
+        make_graph(_op, value_stack, edge_set)
+    if not value_stack:
+        return None, None, set()
+    start, end = value_stack[0]
+    Node.id = 0
+    return start, end, edge_set
 
 
-def visit_nfa(start, end, dot):
+def visit_nfa(start, edge_count, dot, visited=set()):
     """
     遍历图
     :param start:
     :param end:
     :return:
     """
-    if start == end:
+    if len(visited) == edge_count:
         return
-    visited = set([start])
-    for node, label in start.next():
-        if node not in visited:
-            visited.add(node)
-            dot.write('%s->%s%s;' % (start.id, node.id, '[label="%s"]' % label if label else ''))
-            visit_nfa(node, end, dot)
+    for node, edge in start.next():
+        if edge not in visited:
+            visited.add(edge)
+            dot.write('%s->%s%s;' % (start.id, node.id, '[label="%s"]' % edge.value if edge.value else ''))
+            visit_nfa(node, edge_count, dot, visited)
 
 
 if __name__ == '__main__':
+    i = 0
+    if not os.path.exists('digraphs'):
+        os.mkdir('digraphs')
     while True:
         pattern = raw_input('input pattern:\n')
         if pattern == '/quit':
             break
-        start, end = build_nfa(pattern)
-        with open('test.dot', 'w') as dot:
+        start, end, edge_set = build_nfa(pattern)
+        with open('digraphs/digraph%d.dot'%i, 'w') as dot:
             dot.write('digraph G{')
-            visit_nfa(start, end, dot)
-            dot.write('%s[color=red]' % end.id)
+            dot.write('A[shape=box,label="%s"]' % pattern)
+            visit_nfa(start, len(edge_set), dot, visited=set())
+            dot.write('%s[color=red,peripheries=2]' % end.id)
+            dot.write('%s[color=blue]' % start.id)
             dot.write('}')
-        os.system('dot2png.bat')
+        os.system('dot2png.bat %d'%i)
+        i += 1

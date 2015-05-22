@@ -61,6 +61,7 @@ target/
 
 #dot
 *.dot
+digraph*
 *.pyproj
 *.sln
 *.v12.suo
