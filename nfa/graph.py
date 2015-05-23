@@ -134,7 +134,7 @@ def clone_graph(start, end, visited=set()):
     pass
 
 
-def make_graph(op, value_stack, edge_set, is_compress=True):
+def make_graph(op, value_stack, is_compress=True):
     """
     构造子图
     :param op: 操作符
@@ -144,28 +144,30 @@ def make_graph(op, value_stack, edge_set, is_compress=True):
     """
     if op == '.':
         assert len(value_stack) >= 2
-        start2, end2 = value_stack.pop()
-        start1, end1 = value_stack.pop()
+        start2, end2, edge_set2 = value_stack.pop()
+        start1, end1, edge_set1 = value_stack.pop()
+        edge_set = edge_set1 | edge_set2
         old_edge = end1.merge(start2)
         if old_edge and old_edge in edge_set:
             edge_set.remove(old_edge)
-        value_stack.append((start1, end2))
+        value_stack.append((start1, end2, edge_set))
     elif op == '|':
         assert len(value_stack) >= 2
-        start2, end2 = value_stack.pop()
-        start1, end1 = value_stack.pop()
+        start2, end2, edge_set2 = value_stack.pop()
+        start1, end1, edge_set1 = value_stack.pop()
         end1.is_end = False
         end2.is_end = False
+        edge_set = edge_set1 | edge_set2
         start = Node()
         end = Node(is_end=True)
         Edge(start_node=start, end_node=start1, edge_set=edge_set)
         Edge(start_node=start, end_node=start2, edge_set=edge_set)
         Edge(start_node=end1, end_node=end, edge_set=edge_set)
         Edge(start_node=end2, end_node=end, edge_set=edge_set)
-        value_stack.append((start, end))
+        value_stack.append((start, end, edge_set))
     elif op == '*':
         assert len(value_stack) >= 1
-        _start, _end = value_stack.pop()
+        _start, _end, edge_set = value_stack.pop()
         if not is_compress:
             _end.is_end = False
             Edge(start_node=_end, end_node=_start, edge_sete=edge_set)
@@ -174,14 +176,14 @@ def make_graph(op, value_stack, edge_set, is_compress=True):
             Edge(start_node=start, end_node=_start, edge_set=edge_set)
             Edge(start_node=_end, end_node=end, edge_set=edge_set)
             Edge(start_node=start, end_node=end, edge_set=edge_set)
-            value_stack.append((start, end))
+            value_stack.append((start, end, edge_set))
         else:
             Edge(start_node=_end, end_node=_start, edge_set=edge_set)
             Edge(start_node=_start, end_node=_end, edge_set=edge_set)
-            value_stack.append((_start, _end))
+            value_stack.append((_start, _end, edge_set))
     elif op == '?':
         assert len(value_stack) >= 1
-        _start, _end = value_stack.pop()
+        _start, _end, edge_set = value_stack.pop()
         if not is_compress:
             _end.is_end = False
             start = Node()
@@ -189,13 +191,13 @@ def make_graph(op, value_stack, edge_set, is_compress=True):
             Edge(start_node=start, end_node=_start, edge_set=edge_set)
             Edge(start_node=_end, end_node=end, edge_set=edge_set)
             Edge(start_node=start, end_node=end, edge_set=edge_set)
-            value_stack.append((start, end))
+            value_stack.append((start, end, edge_set))
         else:
             Edge(start_node=_start, end_node=_end, edge_set=edge_set)
-            value_stack.append((_start, _end))
+            value_stack.append((_start, _end, edge_set))
     elif op == '+':
         assert len(value_stack) >= 1
-        _start, _end = value_stack.pop()
+        _start, _end, edge_set = value_stack.pop()
         if not is_compress:
             _end.is_end = False
             Edge(start_node=_end, end_node=_start, edge_set=edge_set)
@@ -203,10 +205,10 @@ def make_graph(op, value_stack, edge_set, is_compress=True):
             end = Node(is_end=True)
             Edge(start_node=start, end_node=_start, edge_set=edge_set)
             Edge(start_node=_end, end_node=end, edge_set=edge_set)
-            value_stack.append((start, end))
+            value_stack.append((start, end, edge_set))
         else:
             Edge(start_node=_end, end_node=_start, edge_set=edge_set)
-            value_stack.append((_start, _end))
+            value_stack.append((_start, _end, edge_set))
 
 def build_nfa(pattern):
     """
@@ -216,7 +218,6 @@ def build_nfa(pattern):
     """
     if not pattern:
         return
-    edge_set = set()
     value_stack = []
     op_stack = []
     i = 0
@@ -285,12 +286,13 @@ def build_nfa(pattern):
                 op = '.'
                 while op_stack and operator_priority[op_stack[-1]] >= operator_priority[op]:
                     _op = op_stack.pop()
-                    make_graph(_op, value_stack, edge_set)
+                    make_graph(_op, value_stack)
                 op_stack.append(op)
+            edge_set=set()
             start_node = Node()
             end_node = Node(is_end=True)
             Edge(token, start_node=start_node, end_node=end_node, edge_set=edge_set)
-            value_stack.append((start_node, end_node))
+            value_stack.append((start_node, end_node, edge_set))
             next_is_cat = True
         is_first = False
         i += 1
@@ -299,9 +301,7 @@ def build_nfa(pattern):
         make_graph(_op, value_stack, edge_set)
     if not value_stack:
         return None, None, set()
-    start, end = value_stack[0]
-    Node.id = 0
-    return start, end, edge_set
+    return value_stack.pop()
 
 
 def visit_nfa(start, edge_count, dot, visited=set()):
