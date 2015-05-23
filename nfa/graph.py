@@ -175,8 +175,12 @@ def make_graph(op, value_stack, edge_set):
         assert len(value_stack) >= 1
         _start, _end = value_stack.pop()
         _end.is_end = False
+        edge_set.add(Edge(start_node=_end, end_node=_start))
         start = Node()
         end = Node(is_end=True)
+        edge_set.add(Edge(start_node=start, end_node=_start))
+        edge_set.add(Edge(start_node=_end, end_node=end))
+        value_stack.append((start, end))
 
 
 def build_nfa(pattern):
