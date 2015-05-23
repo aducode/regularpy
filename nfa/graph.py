@@ -236,7 +236,14 @@ def build_nfa(pattern):
         elif token == '+':
             is_op =True
         elif token == '(':
-            op_stack.append(token)
+            if not is_first and next_is_cat:
+                # 需要插入cat运算符
+                op = '.'
+                while op_stack and operator_priority[op_stack[-1]] >= operator_priority[op]:
+                    _op = op_stack.pop()
+                    make_graph(_op, value_stack, edge_set)
+                op_stack.append(op)
+            op_stack.append(token)     
             next_is_cat = False
             i += 1
             continue
@@ -244,6 +251,7 @@ def build_nfa(pattern):
             while op_stack[-1] != '(':
                 _op = op_stack.pop()
                 make_graph(_op, value_stack, edge_set)
+            op_stack.pop()
             next_is_cat = True
             i += 1
             continue
