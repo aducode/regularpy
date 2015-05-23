@@ -2,7 +2,6 @@
 # -*-  coding:utf-8 -*-
 __author__ = 'aducode@126.com'
 import types
-import os
 
 operator_priority = {'|': 1, '.': 2, '*': 3, '?': 3, '+': 3, '(': -1, } # 运算符优先级
 operations_num_map = {'|': 2, '.': 2, '*': 1, '?': 1, '+': 1}
@@ -73,31 +72,6 @@ class Node(object):
             node.add_out_edge(out_edge)
         return ret
 
-    # def pop_in_edge(self, node):
-    #     ret = None
-    #     for edge in self.in_edges:
-    #         if edge.start_node == node:
-    #             ret = edge
-    #             break
-    #     if ret:
-    #         self.in_edges.remove(ret)
-    #         node.out_edges.remove(ret)
-    #         ret.start_node = None
-    #         ret.end_node = None
-    #     return ret
-    #
-    # def pop_out_edge(self, node):
-    #     ret = None
-    #     for edge in self.out_edges:
-    #         if edge.end_node == node:
-    #             ret = edge
-    #             break
-    #     if ret:
-    #         self.out_edges.remove(ret)
-    #         node.in_edges.remove(ret)
-    #         ret.start_node = None
-    #         ret.end_node = None
-    #     return ret
 
 class Edge(object):
     """
