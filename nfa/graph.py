@@ -103,7 +103,7 @@ class Edge(object):
     """
     图的边
     """
-    def __init__(self, value=None, start_node=None, end_node=None):
+    def __init__(self, value=None, start_node=None, end_node=None, edge_set=None):
         """
         图的边
         :param value:  边上的值
@@ -111,6 +111,10 @@ class Edge(object):
         :param end_node: 边的结束节点
         :return:
         """
+        if edge_set:
+            for edge in edge_set:
+                if edge.start_node == start_node and edge.end_node == end_node and edge.value==value:
+                    return
         self.value = value
         self.start_node = start_node
         if isinstance(self.start_node, Node):
@@ -118,6 +122,8 @@ class Edge(object):
         self.end_node = end_node
         if isinstance(self.end_node, Node):
             self.end_node.add_in_edge(self)
+        if isinstance(edge_set, set):
+            edge_set.add(self)
 
 def clone_graph(start, end, visited=set()):
     """
@@ -128,7 +134,14 @@ def clone_graph(start, end, visited=set()):
     pass
 
 
-def make_graph(op, value_stack, edge_set):
+def make_graph(op, value_stack, edge_set, is_compress=True):
+    """
+    构造子图
+    :param op: 操作符
+    :param value_stack: 数值栈
+    :param edge_set: 边集合
+    :param is_compress: 重复节点（* + ?)是否压缩，是使用原来的start end节点 否新建start end节点
+    """
     if op == '.':
         assert len(value_stack) >= 2
         start2, end2 = value_stack.pop()
@@ -145,43 +158,55 @@ def make_graph(op, value_stack, edge_set):
         end2.is_end = False
         start = Node()
         end = Node(is_end=True)
-        edge_set.add(Edge(start_node=start, end_node=start1))
-        edge_set.add(Edge(start_node=start, end_node=start2))
-        edge_set.add(Edge(start_node=end1, end_node=end))
-        edge_set.add(Edge(start_node=end2, end_node=end))
+        Edge(start_node=start, end_node=start1, edge_set=edge_set)
+        Edge(start_node=start, end_node=start2, edge_set=edge_set)
+        Edge(start_node=end1, end_node=end, edge_set=edge_set)
+        Edge(start_node=end2, end_node=end, edge_set=edge_set)
         value_stack.append((start, end))
     elif op == '*':
         assert len(value_stack) >= 1
         _start, _end = value_stack.pop()
-        _end.is_end = False
-        edge_set.add(Edge(start_node=_end, end_node=_start))
-        start = Node()
-        end = Node(is_end=True)
-        edge_set.add(Edge(start_node=start, end_node=_start))
-        edge_set.add(Edge(start_node=_end, end_node=end))
-        edge_set.add(Edge(start_node=start, end_node=end))
-        value_stack.append((start, end))
+        if not is_compress:
+            _end.is_end = False
+            Edge(start_node=_end, end_node=_start, edge_sete=edge_set)
+            start = Node()
+            end = Node(is_end=True)
+            Edge(start_node=start, end_node=_start, edge_set=edge_set)
+            Edge(start_node=_end, end_node=end, edge_set=edge_set)
+            Edge(start_node=start, end_node=end, edge_set=edge_set)
+            value_stack.append((start, end))
+        else:
+            Edge(start_node=_end, end_node=_start, edge_set=edge_set)
+            Edge(start_node=_start, end_node=_end, edge_set=edge_set)
+            value_stack.append((_start, _end))
     elif op == '?':
         assert len(value_stack) >= 1
         _start, _end = value_stack.pop()
-        _end.is_end = False
-        start = Node()
-        end = Node(is_end=True)
-        edge_set.add(Edge(start_node=start, end_node=_start))
-        edge_set.add(Edge(start_node=_end, end_node=end))
-        edge_set.add(Edge(start_node=start, end_node=end))
-        value_stack.append((start, end))
+        if not is_compress:
+            _end.is_end = False
+            start = Node()
+            end = Node(is_end=True)
+            Edge(start_node=start, end_node=_start, edge_set=edge_set)
+            Edge(start_node=_end, end_node=end, edge_set=edge_set)
+            Edge(start_node=start, end_node=end, edge_set=edge_set)
+            value_stack.append((start, end))
+        else:
+            Edge(start_node=_start, end_node=_end, edge_set=edge_set)
+            value_stack.append((_start, _end))
     elif op == '+':
         assert len(value_stack) >= 1
         _start, _end = value_stack.pop()
-        _end.is_end = False
-        edge_set.add(Edge(start_node=_end, end_node=_start))
-        start = Node()
-        end = Node(is_end=True)
-        edge_set.add(Edge(start_node=start, end_node=_start))
-        edge_set.add(Edge(start_node=_end, end_node=end))
-        value_stack.append((start, end))
-
+        if not is_compress:
+            _end.is_end = False
+            Edge(start_node=_end, end_node=_start, edge_set=edge_set)
+            start = Node()
+            end = Node(is_end=True)
+            Edge(start_node=start, end_node=_start, edge_set=edge_set)
+            Edge(start_node=_end, end_node=end, edge_set=edge_set)
+            value_stack.append((start, end))
+        else:
+            Edge(start_node=_end, end_node=_start, edge_set=edge_set)
+            value_stack.append((_start, _end))
 
 def build_nfa(pattern):
     """
@@ -256,7 +281,7 @@ def build_nfa(pattern):
                 op_stack.append(op)
             start_node = Node()
             end_node = Node(is_end=True)
-            edge_set.add(Edge(token, start_node=start_node, end_node=end_node))
+            Edge(token, start_node=start_node, end_node=end_node, edge_set=edge_set)
             value_stack.append((start_node, end_node))
             next_is_cat = True
         is_first = False
