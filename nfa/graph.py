@@ -125,22 +125,13 @@ class Edge(object):
         if isinstance(edge_set, set):
             edge_set.add(self)
 
-def clone_graph(start, end, visited=set()):
-    """
-    复制图
-    :param start: 开始节点
-    :param end:  结束节点
-    """
-    pass
 
-
-def make_graph(op, value_stack, is_compress=True):
+def make_graph(op, value_stack):
     """
     构造子图
     :param op: 操作符
     :param value_stack: 数值栈
     :param edge_set: 边集合
-    :param is_compress: 重复节点（* + ?)是否压缩，是使用原来的start end节点 否新建start end节点
     """
     if op == '.':
         assert len(value_stack) >= 2
@@ -168,47 +159,100 @@ def make_graph(op, value_stack, is_compress=True):
     elif op == '*':
         assert len(value_stack) >= 1
         _start, _end, edge_set = value_stack.pop()
-        if not is_compress:
-            _end.is_end = False
-            Edge(start_node=_end, end_node=_start, edge_sete=edge_set)
-            start = Node()
-            end = Node(is_end=True)
-            Edge(start_node=start, end_node=_start, edge_set=edge_set)
-            Edge(start_node=_end, end_node=end, edge_set=edge_set)
-            Edge(start_node=start, end_node=end, edge_set=edge_set)
-            value_stack.append((start, end, edge_set))
-        else:
-            Edge(start_node=_end, end_node=_start, edge_set=edge_set)
-            Edge(start_node=_start, end_node=_end, edge_set=edge_set)
-            value_stack.append((_start, _end, edge_set))
+        Edge(start_node=_end, end_node=_start, edge_set=edge_set)
+        Edge(start_node=_start, end_node=_end, edge_set=edge_set)
+        value_stack.append((_start, _end, edge_set))
     elif op == '?':
         assert len(value_stack) >= 1
         _start, _end, edge_set = value_stack.pop()
-        if not is_compress:
-            _end.is_end = False
-            start = Node()
-            end = Node(is_end=True)
-            Edge(start_node=start, end_node=_start, edge_set=edge_set)
-            Edge(start_node=_end, end_node=end, edge_set=edge_set)
-            Edge(start_node=start, end_node=end, edge_set=edge_set)
-            value_stack.append((start, end, edge_set))
-        else:
-            Edge(start_node=_start, end_node=_end, edge_set=edge_set)
-            value_stack.append((_start, _end, edge_set))
+        Edge(start_node=_start, end_node=_end, edge_set=edge_set)
+        value_stack.append((_start, _end, edge_set))
     elif op == '+':
         assert len(value_stack) >= 1
         _start, _end, edge_set = value_stack.pop()
-        if not is_compress:
-            _end.is_end = False
-            Edge(start_node=_end, end_node=_start, edge_set=edge_set)
-            start = Node()
-            end = Node(is_end=True)
-            Edge(start_node=start, end_node=_start, edge_set=edge_set)
-            Edge(start_node=_end, end_node=end, edge_set=edge_set)
-            value_stack.append((start, end, edge_set))
-        else:
-            Edge(start_node=_end, end_node=_start, edge_set=edge_set)
-            value_stack.append((_start, _end, edge_set))
+        Edge(start_node=_end, end_node=_start, edge_set=edge_set)
+        value_stack.append((_start, _end, edge_set))
+    elif (op.startswith('{') and op.endswith('}')):
+        # 重复
+        op = op[1:-1]
+        if op.count(',') == 0:
+            min_repeat = max_repeat = int(op)
+        elif op.count(',') == 1:
+            min_max = op.split(',')
+            min_repeat = int(min_max[0]) if min_max[0] else 0
+            max_repeat = int(min_max[1]) if min_max[1] else None
+        if min_repeat>=0 and (max_repeat is None or max_repeat >= min_repeat):
+            if min_repeat == 0 and max_repeat is None:
+                return make_graph('*', value_stack)
+            if min_repeat == 1 and max_repeat is None:
+                return make_graph('+', value_stack)
+            if min_repeat == 0 and max_repeat == 1:
+                return make_graph('?', value_stack)
+            _start, _end, _edge_set = value_stack.pop()
+            if max_repeat is not None and max_repeat > 1:
+                graph_list = list()
+                tmp_nodes = list()
+                for repeat in xrange(max_repeat-1):
+                    graph_list.append(clone_nfa(_start, _end, _edge_set))
+                for idx in xrange(len(graph_list)):
+                    s, e, eset = graph_list[idx]
+                    if idx >= min_repeat-1:
+                        tmp_nodes.append(s)
+                    _end.merge(s)
+                    _edge_set = _edge_set | eset
+                    _end = e
+                if min_repeat == 0:
+                    tmp_nodes.append(_start)
+                for t in tmp_nodes:
+                    Edge(start_node=t, end_node=_end, edge_set=_edge_set)
+            elif max_repeat is None:
+                graph_list = list()
+                for repeat in xrange(min_repeat):
+                    graph_list.append(clone_nfa(_start, _end, _edge_set))
+                tmp_node = None
+                for idx in xrange(len(graph_list)):
+                    s, e, eset = graph_list[idx]
+                    if idx == len(graph_list)-1:
+                        tmp_node = s
+                    _end.merge(s)
+                    _edge_set = _edge_set | eset
+                    _end = e
+                Edge(start_node=tmp_node, end_node=_end, edge_set=_edge_set)
+                Edge(start_node=_end, end_node=tmp_node, edge_set=_edge_set)
+            value_stack.append((_start, _end, _edge_set))
+
+
+def clone_nfa(start, end, edge_set):
+    """
+    复制
+    :param start: 开始节点
+    :param end: 结束节点
+    :param edge_set: 边集合
+    """
+    edge_set_clone=set()
+    start_clone=None
+    end_clone=None
+    visited_node=dict()
+    for edge in edge_set:
+        start_node=edge.start_node
+        end_node=edge.end_node
+        if start_node not in visited_node:
+            visited_node[start_node]=Node(is_end=start_node.is_end)
+        if end_node not in visited_node:
+            visited_node[end_node] = Node(is_end=end_node.is_end)
+        if not start_clone:
+            if start_node == start:
+                start_clone = visited_node[start_node]
+            if end_node == start:
+                start_clone = visited_node[end_node]
+        if not end_clone:
+            if start_node == end:
+                end_clone = visited_node[start_node]
+            if end_node == end:
+                end_clone = visited_node[end_node]
+        Edge(value=edge.value, start_node=visited_node[start_node], end_node=visited_node[end_node], edge_set=edge_set_clone)
+    return start_clone, end_clone, edge_set_clone
+    
 
 def build_nfa(pattern):
     """
@@ -242,7 +286,7 @@ def build_nfa(pattern):
                 op = '.'
                 while op_stack and operator_priority[op_stack[-1]] >= operator_priority[op]:
                     _op = op_stack.pop()
-                    make_graph(_op, value_stack, edge_set)
+                    make_graph(_op, value_stack)
                 op_stack.append(op)
             op_stack.append(token)     
             next_is_cat = False
@@ -251,22 +295,22 @@ def build_nfa(pattern):
         elif token == ')':
             while op_stack[-1] != '(':
                 _op = op_stack.pop()
-                make_graph(_op, value_stack, edge_set)
+                make_graph(_op, value_stack)
             op_stack.pop()
             next_is_cat = True
             i += 1
             continue
-        # elif token == '?':
-        #     is_op = True
-        #     continue
-        # elif token == '+':
-        #     is_op = True
-        #     continue
-        # elif token == '[' or token == ']':
-        #     is_op = True
-        #     continue
-        # elif token == '{' or token == '}':
-        #     is_op = True
+        elif token == '{':
+            j = i+1
+            while pattern[j] != '}':
+                j += 1
+            op = pattern[i:j+1]
+            i = j + 1
+            while op_stack and operator_priority[op_stack[-1]] >= operator_priority['*']:
+                _op = op_stack.pop()
+                make_graph(_op, value_stack)
+            op_stack.append(op)
+            continue
         elif token == '\\':
             # skip 1
             i += 1
@@ -276,7 +320,7 @@ def build_nfa(pattern):
             op = token
             while op_stack and operator_priority[op_stack[-1]] >= operator_priority[op]:
                 _op = op_stack.pop()
-                make_graph(_op, value_stack, edge_set)
+                make_graph(_op, value_stack)
             op_stack.append(op)
             is_op = False
         else:
@@ -298,27 +342,15 @@ def build_nfa(pattern):
         i += 1
     while op_stack:
         _op = op_stack.pop()
-        make_graph(_op, value_stack, edge_set)
+        make_graph(_op, value_stack)
+    Node.id = 0
     if not value_stack:
         return None, None, set()
     return value_stack.pop()
 
-
-def visit_nfa(start, edge_count, dot, visited=set()):
-    """
-    遍历图
-    :param start:
-    :param end:
-    :return:
-    """
-    if len(visited) == edge_count:
-        return
-    for node, edge in start.next():
-        if edge not in visited:
-            visited.add(edge)
-            dot.write('%s->%s%s;' % (start.id, node.id, '[label="%s"]' % edge.value if edge.value else ''))
-            visit_nfa(node, edge_count, dot, visited)
-
+def write2dot(edge_set, dot):
+    for edge in edge_set:
+        dot.write('%s->%s%s;' % (edge.start_node.id, edge.end_node.id, '[label="%s"]' % edge.value if edge.value else ''))
 
 if __name__ == '__main__':
     i = 0
@@ -326,13 +358,13 @@ if __name__ == '__main__':
         os.mkdir('digraphs')
     while True:
         pattern = raw_input('input pattern:\n')
-        if pattern == '/quit':
+        if pattern == '/quit' or pattern=='/q':
             break
         start, end, edge_set = build_nfa(pattern)
         with open('digraphs/digraph%d.dot'%i, 'w') as dot:
             dot.write('digraph G{')
             dot.write('A[shape=box,label="%s"]' % pattern)
-            visit_nfa(start, len(edge_set), dot, visited=set())
+            write2dot(edge_set, dot)
             dot.write('%s[color=red,peripheries=2]' % end.id)
             dot.write('%s[color=blue]' % start.id)
             dot.write('}')
