@@ -7,4 +7,4 @@
 * 计算节点的nullable firstpos
 * 计算节点lastpost followpos
 * 进行match group运算，但是group只支持最小匹配
-
+* 构造NFA，支持{m,n}正则语法
