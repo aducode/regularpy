@@ -13,12 +13,13 @@ class Node(object):
     """
     id = 0
 
-    def __init__(self, in_edges=None, out_edges=None, is_end=False):
+    def __init__(self, in_edges=None, out_edges=None, is_end=False, label=None):
         """
         图的节点
         :param in_edges:  进入节点的边列表
         :param out_edges:  出去节点的边列表
         :param is_end:    是否是接受状态
+        :param label: 节点标签
         :return:
         """
         self.id = self.__class__.id
@@ -36,6 +37,7 @@ class Node(object):
         else:
             self.out_edges = []
         self.is_end = is_end
+        self.label = label
 
     def add_in_edge(self, edge):
         assert isinstance(edge, Edge)
@@ -322,25 +324,70 @@ def build_nfa(pattern):
         return None, None, set()
     return value_stack.pop()
 
+
+
+def closure(node):
+    """
+    获取node的闭包
+    """
+    #_closure = set([node])
+    #for n, edge in node.next():
+    #    if edge.value is None:
+    #        _closure.add(n)
+    #        if edge in edge_set:
+    #            edge_set.remove(edge)
+    #return _closure
+    return set((n for n, edge in node.next() if edge.value is None))|set([node])
+
+
+def compress_nfa(start, end, edge_set):
+    """
+    压缩NFA
+    :param start: 开始节点
+    :param end: 结束节点
+    :param edge_set: 边集合节点
+    :return start, ends, edge_set
+    """
+    Node.id = 0
+    alpha_set = set((edge.value for edge in edge_set if edge.value is not None))
+    compressed_current = closure(start)
+    _start = Node(label=' '.join([str(node.id) for node in compressed_current]))
+    _current = _start
+    _edge_set = set()
+    _end_nodes = set()
+    _node_cache = {tuple(compressed_current):_current}
+    _pre_node_cache = None
+    _pre_edge_set = None
+    first_loop = True
+    #while [left_edge for left_edge in edge_set if left_edge.value is not None]:
+    while not first_loop and _pre_edge_set != _edge_set and _pre_node_cache != _node_cache:
+        _pre_node_cache = dict(_node_cache)
+        _pre_edge_set = set(_edge_set)
+        first_loop = False
+        for alpha in alpha_set:
+            compressed_next_node = set()
+            is_end = False
+            for _node in compressed_current:
+                for next_node, _edge in _node.next(alpha):
+                    if next_node.is_end:
+                        is_end = True
+                    if _edge in edge_set:
+                        edge_set.remove(_edge)
+                    compressed_next_node |= closure(next_node)
+            if tuple(compressed_next_node) not in _node_cache:
+                _node_cache[tuple(compressed_next_node)] = Node(label=' '.join([str(node.id) for node in compressed_next_node]), is_end=is_end)
+            _next_node = _node_cache[tuple(compressed_next_node)]
+            if is_end:
+                _end_nodes.add(_next_node)
+            Edge(value=alpha, start_node=_current, end_node = _next_node, edge_set=_edge_set)
+            _current = _next_node
+            compressed_current = compressed_next_node
+    return _start, _end_nodes, _edge_set
+
+        
+
+
+
 def write2dot(edge_set, dot):
     for edge in edge_set:
         dot.write('%s->%s%s;' % (edge.start_node.id, edge.end_node.id, '[label="%s"]' % edge.value if edge.value else ''))
-
-if __name__ == '__main__':
-    i = 0
-    if not os.path.exists('digraphs'):
-        os.mkdir('digraphs')
-    while True:
-        pattern = raw_input('input pattern:\n')
-        if pattern == '/quit' or pattern=='/q':
-            break
-        start, end, edge_set = build_nfa(pattern)
-        with open('digraphs/digraph%d.dot'%i, 'w') as dot:
-            dot.write('digraph G{')
-            dot.write('A[shape=box,label="%s"]' % pattern)
-            write2dot(edge_set, dot)
-            dot.write('%s[color=red,peripheries=2]' % end.id)
-            dot.write('%s[color=blue]' % start.id)
-            dot.write('}')
-        os.system('dot2png.bat %d'%i)
-        i += 1
