@@ -54,7 +54,8 @@ class Node(object):
         下一批节点
         """
         for out_edge in self.out_edges:
-            if not value or (out_edge.value == value or not out_edge.value):
+            #if not value or (out_edge.value == value or not out_edge.value):
+            if not value or (out_edge.value == value):
                 yield out_edge.end_node, out_edge
 
     def merge(self, node):
@@ -356,11 +357,12 @@ def compress_nfa(start, end, edge_set):
     _edge_set = set()
     _end_nodes = set()
     _node_cache = {tuple(compressed_current):_current}
+    _edge_cache = dict()
     _pre_node_cache = None
     _pre_edge_set = None
     first_loop = True
     #while [left_edge for left_edge in edge_set if left_edge.value is not None]:
-    while not first_loop and _pre_edge_set != _edge_set and _pre_node_cache != _node_cache:
+    while first_loop or (_pre_edge_set != _edge_set and _pre_node_cache != _node_cache):
         _pre_node_cache = dict(_node_cache)
         _pre_edge_set = set(_edge_set)
         first_loop = False
@@ -369,16 +371,18 @@ def compress_nfa(start, end, edge_set):
             is_end = False
             for _node in compressed_current:
                 for next_node, _edge in _node.next(alpha):
-                    if next_node.is_end:
-                        is_end = True
                     if _edge in edge_set:
                         edge_set.remove(_edge)
                     compressed_next_node |= closure(next_node)
+            for _tmp_node in compressed_next_node:
+                if _tmp_node.is_end:
+                    is_end=True
             if tuple(compressed_next_node) not in _node_cache:
                 _node_cache[tuple(compressed_next_node)] = Node(label=' '.join([str(node.id) for node in compressed_next_node]), is_end=is_end)
             _next_node = _node_cache[tuple(compressed_next_node)]
             if is_end:
                 _end_nodes.add(_next_node)
+
             Edge(value=alpha, start_node=_current, end_node = _next_node, edge_set=_edge_set)
             _current = _next_node
             compressed_current = compressed_next_node
