@@ -327,69 +327,79 @@ def build_nfa(pattern):
 
 
 
-def closure(node):
+def closure(node, pre=set()):
     """
     获取node的闭包
     """
-    #_closure = set([node])
-    #for n, edge in node.next():
-    #    if edge.value is None:
-    #        _closure.add(n)
-    #        if edge in edge_set:
-    #            edge_set.remove(edge)
-    #return _closure
-    return set((n for n, edge in node.next() if edge.value is None))|set([node])
+    ret=set()
+    queue = list()
+    queue.append(node)
+    while queue:
+        current = queue.pop(0)
+        if current not in ret:
+            ret.add(current)
+            for next, edge in current.next():
+                if edge.value is None:
+                    queue.append(next)
+    return ret
 
 
-def compress_nfa(start, end, edge_set):
+
+
+def nfa2dfa(start, end, edge_set):
     """
-    压缩NFA
-    :param start: 开始节点
-    :param end: 结束节点
-    :param edge_set: 边集合节点
-    :return start, ends, edge_set
+    nfa转换成dfa
+    :param start: nfa 开始节点
+    :param end:   nfa 结束节点（唯一)
+    :param edge_set: nfa边的集合
+    :return start, end, edge_set  dfa的开始节点，结束节点集合(多个),边集合
     """
-    Node.id = 0
-    alpha_set = set((edge.value for edge in edge_set if edge.value is not None))
-    compressed_current = closure(start)
-    _start = Node(label=' '.join([str(node.id) for node in compressed_current]))
-    _current = _start
+    # reset Node.id
+    Node.id = 1
+    #
     _edge_set = set()
     _end_nodes = set()
-    _node_cache = {tuple(compressed_current):_current}
-    _edge_cache = dict()
-    _pre_node_cache = None
-    _pre_edge_set = None
-    first_loop = True
-    #while [left_edge for left_edge in edge_set if left_edge.value is not None]:
-    while first_loop or (_pre_edge_set != _edge_set and _pre_node_cache != _node_cache):
-        _pre_node_cache = dict(_node_cache)
-        _pre_edge_set = set(_edge_set)
-        first_loop = False
+    # get alpha set
+    alpha_set = set((edge.value for edge in edge_set if edge.value is not None))
+    _start_nodes = closure(start)
+    # DFA start node
+    tmp = [str(node.id) for node in _start_nodes]
+    tmp.sort()
+    _start = Node(label=' '.join(tmp), is_end=(end in _start_nodes))
+    _start.nodes = _start_nodes
+    if end in _start_nodes:
+        _end_nodes.add(_start)
+    #DFA node cache
+    visited = {_start.label:_start}
+    queue = list()
+    queue.append(_start)
+    while queue:
+        _current = queue.pop(0)
         for alpha in alpha_set:
-            compressed_next_node = set()
+            _next_nodes = set()
             is_end = False
-            for _node in compressed_current:
-                for next_node, _edge in _node.next(alpha):
-                    if _edge in edge_set:
-                        edge_set.remove(_edge)
-                    compressed_next_node |= closure(next_node)
-            for _tmp_node in compressed_next_node:
-                if _tmp_node.is_end:
+            for _node in _current.nodes:
+                for _next_node, _edge in _node.next(alpha):
+                    _next_nodes |= closure(_next_node)
+            if not _next_nodes:
+                continue
+            for tmp in _next_nodes:
+                if tmp.is_end:
                     is_end=True
-            if tuple(compressed_next_node) not in _node_cache:
-                _node_cache[tuple(compressed_next_node)] = Node(label=' '.join([str(node.id) for node in compressed_next_node]), is_end=is_end)
-            _next_node = _node_cache[tuple(compressed_next_node)]
-            if is_end:
-                _end_nodes.add(_next_node)
-
-            Edge(value=alpha, start_node=_current, end_node = _next_node, edge_set=_edge_set)
-            _current = _next_node
-            compressed_current = compressed_next_node
+                    break
+            key = [str(n.id) for n in _next_nodes]
+            key.sort()
+            key = ' '.join(key)
+            if key not in visited:              
+                _n = Node(label=key, is_end=is_end)
+                _n.nodes = _next_nodes
+                visited[key] = _n
+                queue.append(_n)
+            _next = visited[key]
+            if _next.is_end:
+                _end_nodes.add(_next)
+            Edge(value=alpha, start_node=_current, end_node=_next, edge_set=_edge_set)
     return _start, _end_nodes, _edge_set
-
-        
-
 
 
 def write2dot(edge_set, dot):
