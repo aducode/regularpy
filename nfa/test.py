@@ -26,6 +26,9 @@ if __name__ == '__main__':
         #start, end, edge_set = compress_nfa(start, end, edge_set)
         #start, end, edge_set = nfa2dfa(start, end, edge_set)
         p = compile(pattern)
+        if not p:
+            print 'Empyt pattern'
+            continue
         with open('digraphs/dfa%d.dot'%i, 'w') as dot:
             dot.write('digraph G{')
             dot.write('A[shape=box,label="%s"]' % pattern)
@@ -40,8 +43,8 @@ if __name__ == '__main__':
         os.system('dot2png.bat %d %s'% (i,'dfa'))
         i += 1
         while True:
-            text = raw_input('input text:\n')
+            text = raw_input('input text:\n> ')
             if text == '/q' or text == '/quit':
                 break
             for tmp in p.group(text):
-                print '>\t', tmp
+                print '>', tmp

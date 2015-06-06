@@ -48,4 +48,5 @@ class Pattern(object):
                 yield text[start:end]
 
 def compile(pattern):
-    return Pattern(pattern)
+    pattern = Pattern(pattern)
+    return pattern if pattern.start and pattern.ends and pattern.edges else None

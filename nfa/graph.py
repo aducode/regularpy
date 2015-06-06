@@ -3,7 +3,7 @@
 __author__ = 'aducode@126.com'
 import types
 
-operator_priority = {'|': 1, '.': 2, '*': 3, '?': 3, '+': 3, '(': -1, } # 运算符优先级
+operator_priority = {'|': 1, '.': 2, '*': 3, '?': 3, '+': 3, '(': -1,} # 运算符优先级
 operations_num_map = {'|': 2, '.': 2, '*': 1, '?': 1, '+': 1}
 
 
@@ -277,6 +277,15 @@ def build_nfa(pattern):
             next_is_cat = True
             i += 1
             continue
+        elif token == '[': # 支持[]操作
+            j = i+1
+            while pattern[j] != ']':
+                j += 1
+            subtoken = pattern[i:j+1]
+            i = j+1
+            # []内部没有嵌套,并且优先级等同于()属于最高，所以可以直接在这里生成一个子图压入值栈
+            print subtoken
+            continue
         elif token == '{':
             j = i+1
             while pattern[j] != '}':
@@ -354,6 +363,8 @@ def nfa2dfa(start, end, edge_set):
     :param edge_set: nfa边的集合
     :return start, end, edge_set  dfa的开始节点，结束节点集合(多个),边集合
     """
+    if not start or not end or not edge_set:
+        return None, set(), set()
     # reset Node.id
     Node.id = 1
     #
