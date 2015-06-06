@@ -43,7 +43,7 @@ if __name__ == '__main__':
         os.system('dot2png.bat %d %s'% (i,'dfa'))
         i += 1
         while True:
-            text = raw_input('input text:\n> ')
+            text = raw_input('input text:\n# ')
             if text == '/q' or text == '/quit':
                 break
             for tmp in p.group(text):

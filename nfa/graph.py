@@ -3,7 +3,7 @@
 __author__ = 'aducode@126.com'
 import types
 
-operator_priority = {'|': 1, '.': 2, '*': 3, '?': 3, '+': 3, '(': -1,} # 运算符优先级
+operator_priority = {'|': 1, '.': 2, '*': 3, '?': 3, '+': 3, '(': -1, '[': -1} # 运算符优先级
 operations_num_map = {'|': 2, '.': 2, '*': 1, '?': 1, '+': 1}
 
 
@@ -245,6 +245,7 @@ def build_nfa(pattern):
     next_is_cat = True
     is_op = False
     is_first = True
+    in_bracket = False  # True的时候表示在[]之中，此时字符串之间默认不是cat操作而是or操作
     while i < len(pattern):
         token = pattern[i]
         if token == '|':
@@ -260,7 +261,8 @@ def build_nfa(pattern):
         elif token == '(':
             if not is_first and next_is_cat:
                 # 需要插入cat运算符
-                op = '.'
+                assert not in_bracket
+                op = '.' if not in_bracket else '|'  #由于[]之中不会再有()了，所以这里in_bracket只会是False
                 while op_stack and operator_priority[op_stack[-1]] >= operator_priority[op]:
                     _op = op_stack.pop()
                     make_graph(_op, value_stack)
@@ -277,15 +279,24 @@ def build_nfa(pattern):
             next_is_cat = True
             i += 1
             continue
-        elif token == '[': # 支持[]操作
-            j = i+1
-            while pattern[j] != ']':
-                j += 1
-            subtoken = pattern[i:j+1]
-            i = j+1
-            # []内部没有嵌套,并且优先级等同于()属于最高，所以可以直接在这里生成一个子图压入值栈
-            print subtoken
-            continue
+        #elif token == '[': # 支持[]操作
+            #j = i+1
+            #while pattern[j] != ']':
+            #    j += 1
+            #subtoken = pattern[i:j+1]
+            #i = j+1
+            #if not is_first and next_is_cat:
+            #    # 需要插入cat运算符
+            #    op = '.'
+            #    while op_stack and operator_priority[op_stack[-1]] >= operator_priority[op]:
+            #        _op = op_stack.pop()
+            #        make_graph(_op, value_stack)
+            #    op_stack.append(op)
+            ## []内部没有嵌套,并且优先级等同于()属于最高，所以可以直接在这里生成一个子图压入值栈
+
+            #next_is_cat = True
+            #continue
+        #    pass
         elif token == '{':
             j = i+1
             while pattern[j] != '}':
@@ -313,7 +324,7 @@ def build_nfa(pattern):
             # 字符串
             if not is_first and next_is_cat:
                 # 需要插入cat运算符
-                op = '.'
+                op = '.' if not in_bracket else '|'
                 while op_stack and operator_priority[op_stack[-1]] >= operator_priority[op]:
                     _op = op_stack.pop()
                     make_graph(_op, value_stack)
