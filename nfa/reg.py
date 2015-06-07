@@ -9,10 +9,10 @@ class Pattern(object):
 
     def group(self, text, pos=0, endpos=None):
         """
-        Æ¥ÅäÕıÔò
-        :param text: ÒªÆ¥ÅäµÄ×Ö·û´®
-        :param pos: ¿ªÊ¼Æ¥ÅäµÄÎ»ÖÃ
-        :param endpos: ½áÊøÆ¥ÅäµÄÎ»ÖÃ
+        åŒ¹é…æ­£åˆ™
+        :param text: è¦åŒ¹é…çš„å­—ç¬¦ä¸²
+        :param pos: åŒ¹é…å­—ç¬¦ä¸²çš„å¼€å§‹ä½ç½®
+        :param endpos: åŒ¹é…å­—ç¬¦ä¸²çš„ç»“æŸä½ç½®
         :return
         """
         #import pdb
@@ -20,7 +20,7 @@ class Pattern(object):
         text = text[pos:endpos if endpos is not None else  len(text)] if text else None
         if text:
             start = 0
-            end = -1 if self.start not in self.ends else 0 # -1 ±íÊ¾»¹Ã»ÕÒµ½
+            end = -1 if self.start not in self.ends else 0 # -1 ï¿½ï¿½Ê¾ï¿½ï¿½Ã»ï¿½Òµï¿½
             i = 0
             current = self.start
             while i<len(text):
@@ -29,13 +29,11 @@ class Pattern(object):
                     next, _ = current.next(alpha).next()
                 except StopIteration:
                     if end != -1:
-                        # Ö®Ç°ÓĞ¹ıÆ¥Åä
                         if start<end:
                             yield text[start:end]
                         i = start = end
                         end = -1
                     else:
-                        # Ö®Ç°Ã»ÓĞ¹ıÆ¥Åä
                         i += 1
                         start = i
                     current = self.start
