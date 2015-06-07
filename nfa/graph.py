@@ -279,6 +279,30 @@ def build_nfa(pattern):
             next_is_cat = True
             i += 1
             continue
+        elif token == '[':
+            # 处理方式与(类似
+            if not is_first and next_is_cat:
+                # 需要插入cat运算符
+                assert not in_bracket
+                op = '.' if not in_bracket else '|'  #由于[]之中不会再有()了，所以这里in_bracket只会是False
+                while op_stack and operator_priority[op_stack[-1]] >= operator_priority[op]:
+                    _op = op_stack.pop()
+                    make_graph(_op, value_stack)
+                op_stack.append(op)
+            op_stack.append(token)
+            next_is_cat = False
+            i += 1
+            in_bracket = True
+            continue
+        elif token == ']':
+            in_bracket = False
+            while op_stack[-1] != '[':
+                _op = op_stack.pop()
+                make_graph(_op, value_stack)
+            op_stack.pop()
+            i += 1
+            next_is_cat = True
+            continue
         #elif token == '[': # 支持[]操作
             #j = i+1
             #while pattern[j] != ']':
