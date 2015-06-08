@@ -273,7 +273,6 @@ def build_nfa(pattern):
     next_is_cat = True
     is_op = False
     is_first = True
-    in_bracket = False  # True的时候表示在[]之中，此时字符串之间默认不是cat操作而是or操作
     is_escape = False  # 是否处于转义状态
     while i < len(pattern):
         token = pattern[i]
@@ -290,8 +289,7 @@ def build_nfa(pattern):
         elif not is_escape and token == '(':
             if not is_first and next_is_cat:
                 # 需要插入cat运算符
-                assert not in_bracket #由于[]之中不会再有()了，所以这里in_bracket只会是False
-                push_op('.' if not in_bracket else '|', op_stack)
+                push_op('.', op_stack)
             op_stack.append(token)     
             next_is_cat = False
             i += 1
@@ -305,37 +303,54 @@ def build_nfa(pattern):
             i += 1
             continue
         elif not is_escape and token == '[':
-            # 处理方式与(类似
             if not is_first and next_is_cat:
                 # 需要插入cat运算符
-                assert not in_bracket
-                op = '.' if not in_bracket else '|'  #由于[]之中不会再有[]了，所以这里in_bracket只会是False
-                push_op('.' if not in_bracket else '|', op_stack)
-            op_stack.append(token)
-            next_is_cat = False
-            i += 1
-            in_bracket = True
-            continue
-        elif not is_escape and token == ']':
-            in_bracket = False
-            while op_stack[-1] != '[':
+                push_op('.', op_stack)
+            j = i+1
+            exclude = False
+            escape = False
+            if pattern[j] == '^':
+                j += 1
+                exclude = True
+            if pattern[j] == '\\':
+                escape = True
+                j += 1
+            range = set()
+            while True:
+                if not escape and pattern[j] == ']':
+                    break
+                # [] 中不能出现这些字符
+                assert escape or pattern[j] not in ('[]{}()|.*+?')
+                if pattern[j] == '\\':
+                    escape = True
+                    j += 1
+                    continue
+                if not escape and pattern[j] == '-':
+                    sp = chr(ord(pattern[j-1])+1)
+                    ep = pattern[j+1]
+                    while sp < ep:
+                        range.add(sp)
+                        sp = chr(ord(sp)+1)
+                else:
+                    range.add(pattern[j])
+                j += 1
+                if escape:
+                    escape = False
+            if exclude:
+                range = set([chr(i) for i in xrange(31, 127)])  - range
+            # 假装插入 '('
+            op_stack.append('(')
+            # for each in SPECIAL_REG[token]
+            range = list(range)
+            for tmp in range[:-1]:
+                push_value(tmp, value_stack)
+                push_op('|', op_stack)
+            push_value(range[-1], value_stack)
+            while op_stack[-1] != '(':
                 _op = op_stack.pop()
                 make_graph(_op, value_stack)
-            op_stack.pop()
-            i += 1
-            next_is_cat = True
-            continue
-        elif not is_escape and in_bracket and token == '-':
-            # 说明是[]中的-
-            range_start = pattern[i-1]
-            range_end = pattern[i+1]
-            if range_start<range_end:
-                curr = chr(ord(range_start)+1)
-                while curr < range_end:
-                    push_op('|', op_stack)
-                    push_value(curr, value_stack)
-                    curr = chr(ord(curr)+1)
-            i += 1
+            op_stack.pop() # 弹出之前压栈的'('
+            i = j + 1
             continue
         elif not is_escape and token == '{':
             j = i+1
@@ -353,9 +368,9 @@ def build_nfa(pattern):
         elif not is_escape and token == '.':
             if not is_first and next_is_cat:
                 # 需要插入cat运算符
-                assert not in_bracket
+                #assert not in_bracket
                 #由于[]之中不会再有.了，所以这里in_bracket只会是False
-                push_op('.' if not in_bracket else '|', op_stack)
+                push_op('.', op_stack)
             # 假装插入 '('
             op_stack.append('(')
             # for each in SPECIAL_REG[token]
@@ -373,7 +388,7 @@ def build_nfa(pattern):
         elif is_escape and token in SPECIAL_REG:
             if not is_first and next_is_cat:
                 # 需要插入cat运算符
-                push_op('.' if not in_bracket else '|', op_stack)
+                push_op('.', op_stack)
             op_stack.append('(')
             for tmp in SPECIAL_REG['\\'+token][:-1]:
                 push_value(tmp, value_stack)
@@ -399,7 +414,7 @@ def build_nfa(pattern):
             # 字符串
             if not is_first and next_is_cat:
                 # 需要插入cat运算符
-                push_op('.' if not in_bracket else '|', op_stack)
+                push_op('.', op_stack)
             push_value(token, value_stack)
             next_is_cat = True
             if is_escape:
