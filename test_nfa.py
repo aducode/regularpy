@@ -12,7 +12,7 @@ if __name__ == '__main__':
         pattern = raw_input('input pattern:\n')
         if pattern == '/quit' or pattern=='/q':
             break
-        #start, end, edge_set = build_nfa(pattern)
+        start, end, edge_set = build_nfa(pattern)
         #if not os.path.exists('digraphs'):
         #    os.mkdir('digraphs')
         #with open('digraphs/nfa%d.dot'%i, 'w') as dot:
@@ -23,7 +23,6 @@ if __name__ == '__main__':
         #    dot.write('%s[color=red, peripheries=2]' % end.id)
         #    dot.write('}')
         #os.system('dot2png.bat %d %s'% (i,'nfa'))
-        #start, end, edge_set = compress_nfa(start, end, edge_set)
         #start, end, edge_set = nfa2dfa(start, end, edge_set)
         p = compile(pattern)
         if not p:

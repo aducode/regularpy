@@ -48,6 +48,8 @@ class Node(object):
             self.out_edges = []
         self.is_end = is_end
         self.label = label
+        self.group_start = set()
+        self.group_end = set()
 
     def add_in_edge(self, edge):
         assert isinstance(edge, Edge)
@@ -269,6 +271,9 @@ def build_nfa(pattern):
         return
     value_stack = []
     op_stack = []
+    # group栈 记录"(" ")"标号
+    group_stack = []
+    group_idx = 1
     i = 0
     next_is_cat = True
     is_op = False
@@ -287,6 +292,8 @@ def build_nfa(pattern):
         elif not is_escape and token == '+':
             is_op =True
         elif not is_escape and token == '(':
+            group_stack.append(group_idx)
+            group_idx += 1
             if not is_first and next_is_cat:
                 # 需要插入cat运算符
                 push_op('.', op_stack)
@@ -295,12 +302,16 @@ def build_nfa(pattern):
             i += 1
             continue
         elif not is_escape and token == ')':
+            gidx = group_stack.pop() # 出栈，说明这是一个group
             while op_stack[-1] != '(':
                 _op = op_stack.pop()
                 make_graph(_op, value_stack)
             op_stack.pop()
             next_is_cat = True
             i += 1
+            group_start, group_end, _ = value_stack[-1]
+            group_start.group_start.add(gidx)
+            group_end.group_end.add(gidx)
             continue
         elif not is_escape and token == '[':
             if not is_first and next_is_cat:
@@ -427,8 +438,11 @@ def build_nfa(pattern):
     Node.id = 0
     if not value_stack:
         return None, None, set()
-    return value_stack.pop()
-
+    assert len(value_stack) == 1
+    ret_start, ret_end, ret_edge = value_stack.pop()
+    ret_start.group_start.add(0)
+    ret_end.group_end.add(0)
+    return ret_start, ret_end, ret_edge
 
 
 def closure(node, pre=set()):
@@ -461,7 +475,7 @@ def nfa2dfa(start, end, edge_set):
     if not start or not end or not edge_set:
         return None, set(), set()
     # reset Node.id
-    Node.id = 1
+    Node.id = 0
     #
     _edge_set = set()
     _end_nodes = set()
