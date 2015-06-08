@@ -46,5 +46,5 @@ if __name__ == '__main__':
             text = raw_input('input text:\n# ')
             if text == '/q' or text == '/quit':
                 break
-            for tmp in p.group(text):
+            for tmp in p.search(text):
                 print '>', tmp

@@ -7,16 +7,14 @@ class Pattern(object):
     def __init__(self, pattern):
         self.start, self.ends, self.edges = nfa2dfa(*build_nfa(pattern))
 
-    def group(self, text, pos=0, endpos=None):
+    def search(self, text, pos=0, endpos=None):
         """
-        group
+        search
         :param text: text
         :param pos: text start pos
         :param endpos: text end pos
         :return
         """
-        #import pdb
-        #pdb.set_trace()
         text = text[pos:endpos if endpos is not None else  len(text)] if text else None
         if text:
             start = 0
