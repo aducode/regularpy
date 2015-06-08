@@ -1,10 +1,10 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 import os
-from graph import write2dot
-from graph import nfa2dfa
-from graph import build_nfa
-from reg import compile
+from nfa.graph import write2dot
+from nfa.graph import nfa2dfa
+from nfa.graph import build_nfa
+from nfa.reg import compile
 
 if __name__ == '__main__':
     i = 0
