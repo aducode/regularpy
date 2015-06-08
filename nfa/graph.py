@@ -3,6 +3,16 @@
 __author__ = 'aducode@126.com'
 import types
 
+# for specail regular
+
+SPECIAL_REG = {
+    '.':    list(set([chr(i) for i in xrange(31, 127)])),  # 可见字符
+    '\d':   list(set([chr(i) for i in xrange(48, 58)])),  # 数字
+    '\w':   list(set([chr(i) for i in xrange(97, 123)]) | set([chr(i) for i in xrange(65, 91)])|set([chr(i) for i in xrange(48, 58)])|set(['_'])), #字符
+    '\D':   list(set([chr(i) for i in xrange(31, 127)]) - set([chr(i) for i in xrange(48, 58)])), # 非数字
+    '\W':   list(set([chr(i) for i in xrange(31, 127)]) - (set([chr(i) for i in xrange(97, 123)]) | set([chr(i) for i in xrange(65, 91)])|set([chr(i) for i in xrange(48, 58)])|set(['_']))),
+}
+
 operator_priority = {'|': 1, '.': 2, '*': 3, '?': 3, '+': 3, '(': -1, '[': -1} # 运算符优先级
 operations_num_map = {'|': 2, '.': 2, '*': 1, '?': 1, '+': 1}
 
@@ -14,7 +24,7 @@ class Node(object):
     id = 0
 
     def __init__(self, in_edges=None, out_edges=None, is_end=False, label=None):
-        """
+        """rr
         图的节点
         :param in_edges:  进入节点的边列表
         :param out_edges:  出去节点的边列表
@@ -237,6 +247,24 @@ def build_nfa(pattern):
     :param pattern: 正则表达式
     :return (start_node, end_node, edge_set):
     """
+    def push_value(token, value_stack):
+        edge_set=set()
+        start_node = Node()
+        end_node = Node(is_end=True)
+        Edge(token, start_node=start_node, end_node=end_node, edge_set=edge_set)
+        value_stack.append((start_node, end_node, edge_set))
+
+    def push_op(op, op_stack):
+        if op.startswith('{') and op.endswith('}'):
+            # {m, n}
+            priority = operator_priority['*'] # equ *
+        else:
+            priority = operator_priority[op]
+        while op_stack and operator_priority[op_stack[-1]] >= priority:
+            _op = op_stack.pop()
+            make_graph(_op, value_stack)
+        op_stack.append(op)
+
     if not pattern:
         return
     value_stack = []
@@ -262,12 +290,8 @@ def build_nfa(pattern):
         elif not is_escape and token == '(':
             if not is_first and next_is_cat:
                 # 需要插入cat运算符
-                assert not in_bracket
-                op = '.' if not in_bracket else '|'  #由于[]之中不会再有()了，所以这里in_bracket只会是False
-                while op_stack and operator_priority[op_stack[-1]] >= operator_priority[op]:
-                    _op = op_stack.pop()
-                    make_graph(_op, value_stack)
-                op_stack.append(op)
+                assert not in_bracket #由于[]之中不会再有()了，所以这里in_bracket只会是False
+                push_op('.' if not in_bracket else '|', op_stack)
             op_stack.append(token)     
             next_is_cat = False
             i += 1
@@ -285,11 +309,8 @@ def build_nfa(pattern):
             if not is_first and next_is_cat:
                 # 需要插入cat运算符
                 assert not in_bracket
-                op = '.' if not in_bracket else '|'  #由于[]之中不会再有()了，所以这里in_bracket只会是False
-                while op_stack and operator_priority[op_stack[-1]] >= operator_priority[op]:
-                    _op = op_stack.pop()
-                    make_graph(_op, value_stack)
-                op_stack.append(op)
+                op = '.' if not in_bracket else '|'  #由于[]之中不会再有[]了，所以这里in_bracket只会是False
+                push_op('.' if not in_bracket else '|', op_stack)
             op_stack.append(token)
             next_is_cat = False
             i += 1
@@ -311,16 +332,8 @@ def build_nfa(pattern):
             if range_start<range_end:
                 curr = chr(ord(range_start)+1)
                 while curr < range_end:
-                    op = '|'
-                    while op_stack and operator_priority[op_stack[-1]] >= operator_priority[op]:
-                        _op = op_stack.pop()
-                        make_graph(_op, value_stack)
-                    op_stack.append(op)
-                    edge_set=set()
-                    start_node = Node()
-                    end_node = Node(is_end=True)
-                    Edge(curr, start_node=start_node, end_node=end_node, edge_set=edge_set)
-                    value_stack.append((start_node, end_node, edge_set))
+                    push_op('|', op_stack)
+                    push_value(curr, value_stack)
                     curr = chr(ord(curr)+1)
             i += 1
             continue
@@ -330,15 +343,48 @@ def build_nfa(pattern):
                 j += 1
             op = pattern[i:j+1]
             i = j + 1
-            while op_stack and operator_priority[op_stack[-1]] >= operator_priority['*']:
-                _op = op_stack.pop()
-                make_graph(_op, value_stack)
-            op_stack.append(op)
+            push_op(op, op_stack)
             continue
         elif not is_escape and token == '\\':
             # skip 1
             i += 1
             is_escape = True
+            continue
+        elif not is_escape and token == '.':
+            if not is_first and next_is_cat:
+                # 需要插入cat运算符
+                assert not in_bracket
+                #由于[]之中不会再有.了，所以这里in_bracket只会是False
+                push_op('.' if not in_bracket else '|', op_stack)
+            # 假装插入 '('
+            op_stack.append('(')
+            # for each in SPECIAL_REG[token]
+            for tmp in SPECIAL_REG[token][:-1]:
+                push_value(tmp, value_stack)
+                push_op('|', op_stack)
+            push_value(SPECIAL_REG[token][-1], value_stack)
+            while op_stack[-1] != '(':
+                _op = op_stack.pop()
+                make_graph(_op, value_stack)
+            op_stack.pop() # 弹出之前压栈的'('
+            i += 1
+            continue
+
+        elif is_escape and token in SPECIAL_REG:
+            if not is_first and next_is_cat:
+                # 需要插入cat运算符
+                push_op('.' if not in_bracket else '|', op_stack)
+            op_stack.append('(')
+            for tmp in SPECIAL_REG['\\'+token][:-1]:
+                push_value(tmp, value_stack)
+                push_op('|', op_stack)
+            push_value(SPECIAL_REG['\\'+token][-1], value_stack)
+            while op_stack[-1] != '(':
+                _op = op_stack.pop()
+                make_graph(_op, value_stack)
+            op_stack.pop()
+            i += 1
+            is_escape = False
             continue
         # operator or token
         if is_op:
@@ -353,16 +399,8 @@ def build_nfa(pattern):
             # 字符串
             if not is_first and next_is_cat:
                 # 需要插入cat运算符
-                op = '.' if not in_bracket else '|'
-                while op_stack and operator_priority[op_stack[-1]] >= operator_priority[op]:
-                    _op = op_stack.pop()
-                    make_graph(_op, value_stack)
-                op_stack.append(op)
-            edge_set=set()
-            start_node = Node()
-            end_node = Node(is_end=True)
-            Edge(token, start_node=start_node, end_node=end_node, edge_set=edge_set)
-            value_stack.append((start_node, end_node, edge_set))
+                push_op('.' if not in_bracket else '|', op_stack)
+            push_value(token, value_stack)
             next_is_cat = True
             if is_escape:
                 is_escape = False
