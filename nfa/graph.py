@@ -303,24 +303,26 @@ def build_nfa(pattern):
             i += 1
             next_is_cat = True
             continue
-        #elif token == '[': # 支持[]操作
-            #j = i+1
-            #while pattern[j] != ']':
-            #    j += 1
-            #subtoken = pattern[i:j+1]
-            #i = j+1
-            #if not is_first and next_is_cat:
-            #    # 需要插入cat运算符
-            #    op = '.'
-            #    while op_stack and operator_priority[op_stack[-1]] >= operator_priority[op]:
-            #        _op = op_stack.pop()
-            #        make_graph(_op, value_stack)
-            #    op_stack.append(op)
-            ## []内部没有嵌套,并且优先级等同于()属于最高，所以可以直接在这里生成一个子图压入值栈
-
-            #next_is_cat = True
-            #continue
-        #    pass
+        elif in_bracket and token == '-':
+            # 说明是[]中的-
+            range_start = pattern[i-1]
+            range_end = pattern[i+1]
+            if range_start<range_end:
+                curr = chr(ord(range_start)+1)
+                while curr < range_end:
+                    op = '|'
+                    while op_stack and operator_priority[op_stack[-1]] >= operator_priority[op]:
+                        _op = op_stack.pop()
+                        make_graph(_op, value_stack)
+                    op_stack.append(op)
+                    edge_set=set()
+                    start_node = Node()
+                    end_node = Node(is_end=True)
+                    Edge(curr, start_node=start_node, end_node=end_node, edge_set=edge_set)
+                    value_stack.append((start_node, end_node, edge_set))
+                    curr = chr(ord(curr)+1)
+            i += 1
+            continue
         elif token == '{':
             j = i+1
             while pattern[j] != '}':
