@@ -246,19 +246,20 @@ def build_nfa(pattern):
     is_op = False
     is_first = True
     in_bracket = False  # True的时候表示在[]之中，此时字符串之间默认不是cat操作而是or操作
+    is_escape = False  # 是否处于转义状态
     while i < len(pattern):
         token = pattern[i]
-        if token == '|':
+        if not is_escape and token == '|':
             # 操作符
             next_is_cat = False
             is_op = True
-        elif token == '*':
+        elif not is_escape and token == '*':
             is_op = True
-        elif token == '?':
+        elif not is_escape and token == '?':
             is_op = True
-        elif token == '+':
+        elif not is_escape and token == '+':
             is_op =True
-        elif token == '(':
+        elif not is_escape and token == '(':
             if not is_first and next_is_cat:
                 # 需要插入cat运算符
                 assert not in_bracket
@@ -271,7 +272,7 @@ def build_nfa(pattern):
             next_is_cat = False
             i += 1
             continue
-        elif token == ')':
+        elif not is_escape and token == ')':
             while op_stack[-1] != '(':
                 _op = op_stack.pop()
                 make_graph(_op, value_stack)
@@ -279,7 +280,7 @@ def build_nfa(pattern):
             next_is_cat = True
             i += 1
             continue
-        elif token == '[':
+        elif not is_escape and token == '[':
             # 处理方式与(类似
             if not is_first and next_is_cat:
                 # 需要插入cat运算符
@@ -294,7 +295,7 @@ def build_nfa(pattern):
             i += 1
             in_bracket = True
             continue
-        elif token == ']':
+        elif not is_escape and token == ']':
             in_bracket = False
             while op_stack[-1] != '[':
                 _op = op_stack.pop()
@@ -303,7 +304,7 @@ def build_nfa(pattern):
             i += 1
             next_is_cat = True
             continue
-        elif in_bracket and token == '-':
+        elif not is_escape and in_bracket and token == '-':
             # 说明是[]中的-
             range_start = pattern[i-1]
             range_end = pattern[i+1]
@@ -323,7 +324,7 @@ def build_nfa(pattern):
                     curr = chr(ord(curr)+1)
             i += 1
             continue
-        elif token == '{':
+        elif not is_escape and token == '{':
             j = i+1
             while pattern[j] != '}':
                 j += 1
@@ -334,10 +335,12 @@ def build_nfa(pattern):
                 make_graph(_op, value_stack)
             op_stack.append(op)
             continue
-        elif token == '\\':
+        elif not is_escape and token == '\\':
             # skip 1
             i += 1
-            token = pattern[i]
+            is_escape = True
+            continue
+        # operator or token
         if is_op:
             # 符号
             op = token
@@ -361,6 +364,8 @@ def build_nfa(pattern):
             Edge(token, start_node=start_node, end_node=end_node, edge_set=edge_set)
             value_stack.append((start_node, end_node, edge_set))
             next_is_cat = True
+            if is_escape:
+                is_escape = False
         is_first = False
         i += 1
     while op_stack:

@@ -13,8 +13,8 @@ if __name__ == '__main__':
         if pattern == '/quit' or pattern=='/q':
             break
         #start, end, edge_set = build_nfa(pattern)
-        if not os.path.exists('digraphs'):
-            os.mkdir('digraphs')
+        #if not os.path.exists('digraphs'):
+        #    os.mkdir('digraphs')
         #with open('digraphs/nfa%d.dot'%i, 'w') as dot:
         #    dot.write('digraph G{')
         #    dot.write('A[shape=box, label="%s"]' % pattern)
@@ -29,18 +29,18 @@ if __name__ == '__main__':
         if not p:
             print 'Empyt pattern'
             continue
-        with open('digraphs/dfa%d.dot'%i, 'w') as dot:
-            dot.write('digraph G{')
-            dot.write('A[shape=box,label="%s"]' % pattern)
-            write2dot(p.edges, dot)
-            for _e in p.ends:
-                dot.write('%s[color=red,peripheries=2]' % _e.id)
-            if p.start not in p.ends:
-                dot.write('%s[color=blue]' % p.start.id)
-            else:
-                dot.write('%s[color=blue,peripheries=2]' % p.start.id)
-            dot.write('}')
-        os.system('dot2png.bat %d %s'% (i,'dfa'))
+        #with open('digraphs/dfa%d.dot'%i, 'w') as dot:
+        #    dot.write('digraph G{')
+        #    dot.write('A[shape=box,label="%s"]' % pattern)
+        #    write2dot(p.edges, dot)
+        #    for _e in p.ends:
+        #        dot.write('%s[color=red,peripheries=2]' % _e.id)
+        #    if p.start not in p.ends:
+        #        dot.write('%s[color=blue]' % p.start.id)
+        #    else:
+        #        dot.write('%s[color=blue,peripheries=2]' % p.start.id)
+        #    dot.write('}')
+        #os.system('dot2png.bat %d %s'% (i,'dfa'))
         i += 1
         while True:
             text = raw_input('input text:\n# ')
