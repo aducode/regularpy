@@ -9,10 +9,10 @@ class Pattern(object):
 
     def group(self, text, pos=0, endpos=None):
         """
-        匹配正则
-        :param text: 要匹配的字符串
-        :param pos: 匹配字符串的开始位置
-        :param endpos: 匹配字符串的结束位置
+        group
+        :param text: text
+        :param pos: text start pos
+        :param endpos: text end pos
         :return
         """
         #import pdb
@@ -20,7 +20,7 @@ class Pattern(object):
         text = text[pos:endpos if endpos is not None else  len(text)] if text else None
         if text:
             start = 0
-            end = -1 if self.start not in self.ends else 0 # -1 ��ʾ��û�ҵ�
+            end = -1 if self.start not in self.ends else 0 # -1 not find
             i = 0
             current = self.start
             while i<len(text):
