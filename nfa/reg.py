@@ -3,6 +3,22 @@
 from graph import build_nfa
 from graph import nfa2dfa
 
+class Match(object):
+    def __init__(self, text, start, end):
+        self.text = text
+        self.start = start
+        self.end = end
+
+    def start(self, group=0):
+        return self.start
+
+    def end(self, group=0):
+        return self.start
+
+    def group(self, group=0):
+        return self.text[self.start:self.end]
+
+
 class Pattern(object):
     def __init__(self, pattern):
         self.start, self.ends, self.edges = nfa2dfa(*build_nfa(pattern))
@@ -28,7 +44,7 @@ class Pattern(object):
                 except StopIteration:
                     if end != -1:
                         if start<end:
-                            yield text[start:end]
+                            yield Match(text, start, end)
                         i = start = end
                         end = -1
                     else:
@@ -41,7 +57,7 @@ class Pattern(object):
                     if current in self.ends:
                         end = i
             if start<end:
-                yield text[start:end]
+                yield Match(text, start, end)
 
 def compile(pattern):
     pattern = Pattern(pattern)
