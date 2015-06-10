@@ -21,10 +21,12 @@ class Match(object):
 
 class Pattern(object):
     def __init__(self, pattern):
-        self.nfa_start, nfa_end, self.nfa_edges = build_nfa(pattern)
-        self.dfa_start, self.dfa_ends, self.dfa_edges = nfa2dfa(self.nfa_start, nfa_end, self.nfa_edges)
-        self.nfa_ends = set([nfa_end])
-        self.start, self.ends, self.edges = self.dfa_start, self.dfa_ends, self.dfa_edges
+        self.start, self.ends, self.edges = nfa2dfa(*build_nfa(pattern))
+        #self.nfa_start, nfa_end, self.nfa_edges = build_nfa(pattern)
+        #self.dfa_start, self.dfa_ends, self.dfa_edges = nfa2dfa(self.nfa_start, nfa_end, self.nfa_edges)
+        #self.nfa_ends = set([nfa_end])
+        #self.start, self.ends, self.edges = self.dfa_start, self.dfa_ends, self.dfa_edges
+        #self.start, self.ends, self.edges = self.nfa_start, self.nfa_ends, self.nfa_edges
 
     def search(self, text, pos=0, endpos=None):
         """
