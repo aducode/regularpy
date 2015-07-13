@@ -1,5 +1,5 @@
 # regular
-自己动手实现一个简单的正则表达式引擎
+自己动手实现一个简单的正则表达式引擎，配合[graphviz](http://www.graphviz.org/)绘出状态图
 
 目前进度：
 
