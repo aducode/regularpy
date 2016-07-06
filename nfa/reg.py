@@ -13,7 +13,7 @@ class Match(object):
         return self.start
 
     def end(self, group=0):
-        return self.start
+        return self.end
 
     def group(self, group=0):
         return self.text[self.start:self.end]
